@@ -1,0 +1,38 @@
+// Verified password change. Clears must_change_password only after a real change.
+import { adminClient, anonClient, send, clientIp, rateLimit, passwordProblem, SERVER_ERROR } from './_lib.js';
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
+  try {
+    const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    if (!token) return send(res, 401, { error: 'กรุณาเข้าสู่ระบบอีกครั้ง' });
+
+    const admin = adminClient();
+    const { data: userData, error: uErr } = await admin.auth.getUser(token);
+    if (uErr || !userData?.user) return send(res, 401, { error: 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่' });
+    const user = userData.user;
+
+    if (!(await rateLimit(admin, `pw:${user.id}:${clientIp(req)}`, 6, 900))) {
+      return send(res, 429, { error: 'ลองเปลี่ยนรหัสผ่านบ่อยเกินไป กรุณารอสักครู่' });
+    }
+
+    const { current_password: current, new_password: next } = req.body || {};
+    const pwErr = passwordProblem(next);
+    if (pwErr) return send(res, 400, { error: pwErr });
+    if (current === next) return send(res, 400, { error: 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านเดิม' });
+
+    const { error: vErr } = await anonClient().auth.signInWithPassword({ email: user.email, password: current });
+    if (vErr) return send(res, 401, { error: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' });
+
+    const { error: upErr } = await admin.auth.admin.updateUserById(user.id, { password: next });
+    if (upErr) return send(res, 400, { error: 'ไม่สามารถตั้งรหัสผ่านนี้ได้ กรุณาลองรหัสอื่น' });
+
+    await admin.from('profiles').update({ must_change_password: false }).eq('id', user.id);
+    await admin.from('audit_logs').insert({ actor: user.id, action: 'user.password_changed', target_table: 'profiles', target_id: user.id });
+
+    send(res, 200, { message: 'เปลี่ยนรหัสผ่านเรียบร้อยแล้ว' });
+  } catch (e) {
+    console.error('change-password', e);
+    send(res, 500, { error: SERVER_ERROR });
+  }
+}
