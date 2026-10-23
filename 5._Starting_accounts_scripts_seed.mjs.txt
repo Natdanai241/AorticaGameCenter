@@ -1,0 +1,46 @@
+// Creates the initial GM and VIP accounts using Supabase Auth's hashing.
+// Usage (locally, once):  npm run seed   (reads .env.seed — delete that file afterwards)
+import { createClient } from '@supabase/supabase-js';
+
+const env = process.env;
+for (const k of ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'GM_INITIAL_PASSWORD', 'VIP_INITIAL_PASSWORD']) {
+  if (!env[k]) { console.error(`Missing env: ${k}`); process.exit(1); }
+}
+
+const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+const accounts = [
+  { username: 'gm', display: 'GameMaster', email: env.GM_EMAIL || 'gm@aortica.local',
+    password: env.GM_INITIAL_PASSWORD, role: 'gm', tier: 'vip' },
+  { username: 'p', display: 'Player P', email: env.VIP_EMAIL || 'p@aortica.local',
+    password: env.VIP_INITIAL_PASSWORD, role: 'player', tier: 'vip' },
+];
+
+for (const a of accounts) {
+  const { data: existing } = await admin.from('profiles').select('id').eq('username', a.username).maybeSingle();
+  let id = existing?.id;
+
+  if (!id) {
+    const { data, error } = await admin.auth.admin.createUser({
+      email: a.email, password: a.password, email_confirm: true,
+      user_metadata: { username: a.username, display_name: a.display },
+    });
+    if (error) { console.error(`✖ ${a.username}: ${error.message}`); process.exitCode = 1; continue; }
+    id = data.user.id;
+  } else {
+    console.log(`• ${a.username} exists — updating role/tier only (password untouched)`);
+  }
+
+  const profilePatch = { role: a.role, status: 'active', approved_at: new Date().toISOString() };
+  if (!existing) profilePatch.must_change_password = true;   // forced change at first login
+
+  const p = await admin.from('profiles').update(profilePatch).eq('id', id);
+  const m = await admin.from('memberships').upsert({
+    user_id: id, tier_code: a.tier, status: 'active',
+    started_at: new Date().toISOString(), expires_at: null, renewal_note: 'Initial seed',
+  });
+  if (p.error || m.error) { console.error(`✖ ${a.username}:`, p.error || m.error); process.exitCode = 1; continue; }
+  console.log(`✔ ${a.username} ready (${a.role}, ${a.tier})`);
+}
