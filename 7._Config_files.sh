@@ -1,0 +1,13 @@
+# ---- Vercel → Project → Settings → Environment Variables ----
+SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co
+SUPABASE_ANON_KEY=your-anon-public-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key   # SERVER ONLY. Never put in frontend code.
+SITE_URL=https://your-project.vercel.app
+
+# ---- .env.seed (local only, used once by `npm run seed`, then DELETE the file) ----
+# SUPABASE_URL=...
+# SUPABASE_SERVICE_ROLE_KEY=...
+# GM_INITIAL_PASSWORD=...
+# VIP_INITIAL_PASSWORD=...
+# GM_EMAIL=gm@aortica.local      (optional)
+# VIP_EMAIL=p@aortica.local      (optional)
