@@ -6,7 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
 // ---------------------------------------------------------------- helpers
 const $ = (s, r = document) => r.querySelector(s);
-const $ = (s, r = document) => [...r.querySelectorAll(s)];
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const main = () => $('#main');
 const one = (x) => (Array.isArray(x) ? x[0] : x) || null;
@@ -65,7 +65,7 @@ function openModal(html, onMount) {
   const d = $('#modal');
   d.innerHTML = `<div class="modal-inner">${html}</div>`;
   if (!d.open) d.showModal();
-  $('[data-close]', d).forEach((b) => b.addEventListener('click', () => d.close()));
+  $$('[data-close]', d).forEach((b) => b.addEventListener('click', () => d.close()));
   onMount?.(d);
   $('input:not([type=hidden]),select,textarea', d)?.focus();
 }
@@ -496,12 +496,12 @@ async function renderLibrary() {
   $('#cats').addEventListener('click', (e) => {
     const b = e.target.closest('[data-cat]'); if (!b) return;
     state.f.cat = b.dataset.cat;
-    $('[data-cat]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    $$('[data-cat]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     drawGrid();
   });
   $('#fAccess').onchange = (e) => { state.f.access = e.target.value; drawGrid(); };
   $('#fSort').onchange = (e) => { state.f.sort = e.target.value; drawGrid(); };
-  $('[data-car]').forEach((b) => {
+  $$('[data-car]').forEach((b) => {
     b.onclick = () => { const c = $(`#car-${b.dataset.car}`); c.scrollBy({ left: c.clientWidth * 0.8 * Number(b.dataset.dir), behavior: 'smooth' }); };
   });
   drawGrid();
@@ -733,10 +733,10 @@ const GM_VIEWS = {
         <tbody>${rows.map(row).join('') || '<tr><td colspan="7" class="muted">ไม่มีรายการ</td></tr>'}</tbody>
       </table></div>`;
 
-    $('[data-f]', el).forEach((b) => { b.onclick = () => { state.gmUserFilter = b.dataset.f; renderGM('users'); }; });
+    $$('[data-f]', el).forEach((b) => { b.onclick = () => { state.gmUserFilter = b.dataset.f; renderGM('users'); }; });
     $('#uq', el).addEventListener('input', (e) => {
       const s = e.target.value.trim().toLowerCase();
-      $('tbody tr[data-id]', el).forEach((tr) => { tr.hidden = !!s && !tr.dataset.s.includes(s); });
+    $$('tbody tr[data-id]', el).forEach((tr) => { tr.hidden = !!s && !tr.dataset.s.includes(s); });
     });
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]'); if (!b) return;
@@ -824,7 +824,7 @@ const GM_VIEWS = {
           <p class="form-msg" role="alert"></p>
           <button class="btn primary sm" type="submit">บันทึก ${TIER_LABEL[t.code]}</button>
         </form>`).join('')}</div>`;
-    $('form[data-code]', el).forEach((form) => form.addEventListener('submit', (ev) => {
+    $$('form[data-code]', el).forEach((form) => form.addEventListener('submit', (ev) => {
       ev.preventDefault();
       const f = Object.fromEntries(new FormData(form));
       withBusy(ev.submitter, async () => {
@@ -906,7 +906,7 @@ function membershipModal(u, mode) {
         <button class="btn primary" type="submit">${approve ? 'อนุมัติและเปิดใช้งาน' : 'บันทึก'}</button></div>
     </form>`, (d) => {
     const exp = $('[name=expires]', d);
-    $('[data-add]', d).forEach((b) => { b.onclick = () => {
+      $$('[data-add]', d).forEach((b) => { b.onclick = () => {
       const days = Number(b.dataset.add);
       if (!days) { exp.value = ''; return; }
       const base = exp.value && new Date(exp.value) > new Date() ? new Date(exp.value) : new Date();
