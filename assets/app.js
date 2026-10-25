@@ -381,6 +381,13 @@ function renderChangePassword(forced) {
 }
 
 // ---------------------------------------------------------------- library
+const MODES = [
+  { key: 'single', label: '👤 Single player' },
+  { key: 'duo', label: '👥 Duo player' },
+  { key: 'multi', label: '🎮 Multiple player' },
+];
+const modeChips = (list) => MODES.filter((m) => (list || []).includes(m.key))
+  .map((m) => `<span class="tag">${m.label}</span>`).join('');
 const gameCard = (g) => `
   <a class="gcard ${g.can_play ? '' : 'locked'}" href="#/game/${g.id}"
      aria-label="${esc(g.title)} — ${g.can_play ? 'พร้อมเล่น' : `ล็อก ระดับแนะนำ ${TIER_LABEL[g.min_tier]}`}">
@@ -393,6 +400,7 @@ const gameCard = (g) => `
     <div class="gbody">
       <h3>${esc(g.title)}</h3>
       <p class="cat">${esc(g.category_name || 'ไม่มีหมวดหมู่')}</p>
+      ${(g.modes || []).length ? `<div class="tags">${modeChips(g.modes)}</div>` : ''}
       <p class="desc">${esc(g.short_description)}</p>
       <span class="access ${g.can_play ? 'ok' : 'no'}">${g.can_play ? 'พร้อมเล่น' : `ล็อก · ระดับ ${TIER_LABEL[g.min_tier]} ขึ้นไป`}</span>
     </div>
@@ -528,7 +536,7 @@ async function renderGame(id) {
       <article class="detail">
         <div class="detail-media">${g.thumbnail_url ? `<img src="${esc(g.thumbnail_url)}" alt="ภาพปกเกม ${esc(g.title)}">` : `<div class="thumb-ph big">${icon(cat?.icon)}</div>`}</div>
         <div class="detail-info card">
-          <div class="tags"><span class="tag">${esc(cat?.name_th || 'ไม่มีหมวดหมู่')}</span>${tierBadge(g.min_tier)}${g.is_published ? '' : '<span class="tag warn">ยังไม่เผยแพร่</span>'}</div>
+        <div class="tags"><span class="tag">${esc(cat?.name_th || 'ไม่มีหมวดหมู่')}</span>${tierBadge(g.min_tier)}${modeChips(g.modes)}${g.is_published ? '' : '<span class="tag warn">ยังไม่เผยแพร่</span>'}</div>
           <h1>${esc(g.title)}</h1>
           <p class="lead">${esc(g.short_description)}</p>
           ${can ? `<a class="btn primary xl" href="#/play/${g.id}">${icon('play')} เล่นเกม</a>` : `
@@ -1004,6 +1012,9 @@ async function gameModal(g) {
           <option value="allow" ${ov[t] === 'allow' ? 'selected' : ''}>อนุญาตเสมอ</option>
           <option value="deny" ${ov[t] === 'deny' ? 'selected' : ''}>ไม่อนุญาต</option></select></label>`).join('')}
       </fieldset>
+      <fieldset class="ovr"><legend>โหมดเกม</legend>
+        ${MODES.map((m) => `<label class="check"><input type="checkbox" name="modes" value="${m.key}" ${(g?.modes || []).includes(m.key) ? 'checked' : ''}> ${m.label}</label>`).join('')}
+      </fieldset>
       <div class="checks">
         <label class="check"><input type="checkbox" name="is_published" ${g?.is_published ? 'checked' : ''}> เผยแพร่</label>
         <label class="check"><input type="checkbox" name="is_featured" ${g?.is_featured ? 'checked' : ''}> เกมแนะนำ</label>
@@ -1029,6 +1040,7 @@ async function gameModal(g) {
           thumbnail_url: f.thumbnail_url.trim() || null, short_description: f.short_description.trim(),
           description: f.description.trim(), screenshots: shots,
           is_published: !!f.is_published, is_featured: !!f.is_featured,
+          modes: $$('input[name="modes"]:checked', ev.target).map((x) => x.value),
         };
         let id = g?.id;
         if (id) await q(sb.from('games').update(payload).eq('id', id));
