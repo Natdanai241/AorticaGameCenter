@@ -756,10 +756,10 @@ const GM_VIEWS = {
     const games = await q(sb.from('games').select('*, categories(name_th)').order('created_at', { ascending: false }));
     el.innerHTML = `
       <div class="toolbar"><span class="muted">${games.length} เกม</span>
-        <button class="btn primary sm" id="addGame">${icon('plus')} เพิ่มเกม</button></div>
+        <input type="search" id="gq" placeholder="ค้นหาชื่อเกม, slug หรือหมวดหมู่" aria-label="ค้นหาเกม">
       <div class="table-wrap"><table class="tbl">
         <thead><tr><th>ชื่อเกม</th><th>หมวดหมู่</th><th>ระดับขั้นต่ำ</th><th>สถานะ</th><th>แนะนำ</th><th>อัปเดต</th><th>การจัดการ</th></tr></thead>
-        <tbody>${games.map((g) => `<tr data-id="${g.id}">
+          <tbody>${games.map((g) => `<tr data-id="${g.id}" data-s="${esc(`${g.title} ${g.slug} ${one(g.categories)?.name_th || ''}`.toLowerCase())}">
           <td><b>${esc(g.title)}</b><br><span class="muted small">${esc(g.slug)}</span></td>
           <td>${esc(one(g.categories)?.name_th || '—')}</td>
           <td>${tierBadge(g.min_tier)}</td>
@@ -770,6 +770,10 @@ const GM_VIEWS = {
         </tr>`).join('') || '<tr><td colspan="7" class="muted">ยังไม่มีเกม กด “เพิ่มเกม” เพื่อเริ่มต้น</td></tr>'}</tbody>
       </table></div>`;
     $('#addGame').onclick = () => gameModal(null);
+    $('#gq', el).addEventListener('input', (e) => {
+      const s = e.target.value.trim().toLowerCase();
+      $$('tbody tr[data-id]', el).forEach((tr) => { tr.hidden = !!s && !tr.dataset.s.includes(s); });
+    });
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]'); if (!b) return;
       const g = games.find((x) => x.id === b.closest('tr').dataset.id); if (!g) return;
@@ -786,15 +790,19 @@ const GM_VIEWS = {
     const cats = await q(sb.from('categories').select('*').order('sort_order'));
     el.innerHTML = `
       <div class="toolbar"><span class="muted">${cats.length} หมวดหมู่</span>
-        <button class="btn primary sm" id="addCat">${icon('plus')} เพิ่มหมวดหมู่</button></div>
+        <input type="search" id="cq" placeholder="ค้นหาหมวดหมู่" aria-label="ค้นหาหมวดหมู่">
       <div class="table-wrap"><table class="tbl">
         <thead><tr><th>ไอคอน</th><th>ชื่อ</th><th>Slug</th><th>ลำดับ</th><th>สถานะ</th><th>การจัดการ</th></tr></thead>
-        <tbody>${cats.map((c) => `<tr data-id="${c.id}">
+        <tbody>${cats.map((c) => `<tr data-id="${c.id}" data-s="${esc(`${c.name_th} ${c.slug}`.toLowerCase())}">
           <td>${icon(c.icon)}</td><td><b>${esc(c.name_th)}</b></td><td>${esc(c.slug)}</td><td>${c.sort_order}</td>
           <td>${c.is_active ? '<span class="st st-active">แสดง</span>' : '<span class="st st-pending">ซ่อน</span>'}</td>
           <td><div class="actions">${actBtn('edit', 'แก้ไข')}${actBtn('del', 'ลบ', 'danger')}</div></td></tr>`).join('')}</tbody>
       </table></div>`;
     $('#addCat').onclick = () => categoryModal(null);
+    $('#cq', el).addEventListener('input', (e) => {
+      const s = e.target.value.trim().toLowerCase();
+      $$('tbody tr[data-id]', el).forEach((tr) => { tr.hidden = !!s && !tr.dataset.s.includes(s); });
+    });
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]'); if (!b) return;
       const c = cats.find((x) => x.id === b.closest('tr').dataset.id); if (!c) return;
