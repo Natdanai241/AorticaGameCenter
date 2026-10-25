@@ -757,6 +757,7 @@ const GM_VIEWS = {
     el.innerHTML = `
       <div class="toolbar"><span class="muted">${games.length} เกม</span>
         <input type="search" id="gq" placeholder="ค้นหาชื่อเกม, slug หรือหมวดหมู่" aria-label="ค้นหาเกม">
+        <button class="btn primary sm" id="addGame">${icon('plus')} เพิ่มเกม</button></div>
       <div class="table-wrap"><table class="tbl">
         <thead><tr><th>ชื่อเกม</th><th>หมวดหมู่</th><th>ระดับขั้นต่ำ</th><th>สถานะ</th><th>แนะนำ</th><th>อัปเดต</th><th>การจัดการ</th></tr></thead>
           <tbody>${games.map((g) => `<tr data-id="${g.id}" data-s="${esc(`${g.title} ${g.slug} ${one(g.categories)?.name_th || ''}`.toLowerCase())}">
@@ -791,6 +792,7 @@ const GM_VIEWS = {
     el.innerHTML = `
       <div class="toolbar"><span class="muted">${cats.length} หมวดหมู่</span>
         <input type="search" id="cq" placeholder="ค้นหาหมวดหมู่" aria-label="ค้นหาหมวดหมู่">
+        <button class="btn primary sm" id="addCat">${icon('plus')} เพิ่มหมวดหมู่</button></div>
       <div class="table-wrap"><table class="tbl">
         <thead><tr><th>ไอคอน</th><th>ชื่อ</th><th>Slug</th><th>ลำดับ</th><th>สถานะ</th><th>การจัดการ</th></tr></thead>
         <tbody>${cats.map((c) => `<tr data-id="${c.id}" data-s="${esc(`${c.name_th} ${c.slug}`.toLowerCase())}">
