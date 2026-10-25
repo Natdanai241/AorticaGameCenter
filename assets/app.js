@@ -524,20 +524,22 @@ async function renderLibrary() {
 async function renderGame(id) {
   main().innerHTML = loading();
   try {
-    const [g, can] = await Promise.all([
-      q(sb.from('games').select('*, categories(name_th, icon)').eq('id', id).maybeSingle()),
+    const [g, can, allCats] = await Promise.all([
+      q(sb.from('games').select('*').eq('id', id).maybeSingle()),
       q(sb.rpc('can_access_game', { p_game: id })),
+      q(sb.from('categories').select('id, name_th, icon')),
     ]);
     if (!g) throw new Error('ไม่พบเกมนี้ หรือคุณไม่มีสิทธิ์ดูข้อมูล');
-    const cat = one(g.categories);
+    const cats = (g.category_ids?.length ? g.category_ids : (g.category_id ? [g.category_id] : []))
+      .map((cid) => (allCats || []).find((c) => c.id === cid)).filter(Boolean);
+    const cat = cats[0];
     const shots = (Array.isArray(g.screenshots) ? g.screenshots : []).filter((u) => /^https:\/\//.test(u));
     main().innerHTML = `
       <nav class="crumbs" aria-label="เส้นทาง"><a href="#/library">คลังเกม</a><span aria-hidden="true">/</span><span>${esc(g.title)}</span></nav>
       <article class="detail">
         <div class="detail-media">${g.thumbnail_url ? `<img src="${esc(g.thumbnail_url)}" alt="ภาพปกเกม ${esc(g.title)}">` : `<div class="thumb-ph big">${icon(cat?.icon)}</div>`}</div>
         <div class="detail-info card">
-        <div class="tags"><span class="tag">${esc(cat?.name_th || 'ไม่มีหมวดหมู่')}</span>${tierBadge(g.min_tier)}${modeChips(g.modes)}${g.is_published ? '' : '<span class="tag warn">ยังไม่เผยแพร่</span>'}</div>
-          <h1>${esc(g.title)}</h1>
+        <div class="tags">${cats.map((c) => `<span class="tag">${esc(c.name_th)}</span>`).join('') || '<span class="tag">ไม่มีหมวดหมู่</span>'}${tierBadge(g.min_tier)}${modeChips(g.modes)}${g.is_published ? '' : '<span class="tag warn">ยังไม่เผยแพร่</span>'}</div>
           <p class="lead">${esc(g.short_description)}</p>
           ${can ? `<a class="btn primary xl" href="#/play/${g.id}">${icon('play')} เล่นเกม</a>` : `
             <div class="locked-panel">${icon('lock')}<div>
@@ -766,16 +768,21 @@ const GM_VIEWS = {
   },
 
   async games(el) {
-    const games = await q(sb.from('games').select('*, categories(name_th)').order('created_at', { ascending: false }));
+    const [games, allCats] = await Promise.all([
+      q(sb.from('games').select('*').order('created_at', { ascending: false })),
+      q(sb.from('categories').select('id, name_th')),
+    ]);
+    const catNames = (g) => (g.category_ids?.length ? g.category_ids : (g.category_id ? [g.category_id] : []))
+      .map((cid) => (allCats || []).find((c) => c.id === cid)?.name_th).filter(Boolean).join(', ');
     el.innerHTML = `
       <div class="toolbar"><span class="muted">${games.length} เกม</span>
         <input type="search" id="gq" placeholder="ค้นหาชื่อเกม, slug หรือหมวดหมู่" aria-label="ค้นหาเกม">
         <button class="btn primary sm" id="addGame">${icon('plus')} เพิ่มเกม</button></div>
       <div class="table-wrap"><table class="tbl">
         <thead><tr><th>ชื่อเกม</th><th>หมวดหมู่</th><th>ระดับขั้นต่ำ</th><th>สถานะ</th><th>แนะนำ</th><th>อัปเดต</th><th>การจัดการ</th></tr></thead>
-          <tbody>${games.map((g) => `<tr data-id="${g.id}" data-s="${esc(`${g.title} ${g.slug} ${one(g.categories)?.name_th || ''}`.toLowerCase())}">
+          <tbody>${games.map((g) => `<tr data-id="${g.id}" data-s="${esc(`${g.title} ${g.slug} ${catNames(g)}`.toLowerCase())}">
           <td><b>${esc(g.title)}</b><br><span class="muted small">${esc(g.slug)}</span></td>
-          <td>${esc(one(g.categories)?.name_th || '—')}</td>
+          <td>${esc(catNames(g) || '—')}</td>
           <td>${tierBadge(g.min_tier)}</td>
           <td>${g.is_published ? '<span class="st st-active">เผยแพร่แล้ว</span>' : '<span class="st st-pending">ฉบับร่าง</span>'}</td>
           <td>${g.is_featured ? '★' : '—'}</td>
