@@ -36,6 +36,11 @@ const ICONS = {
   adventure: '<path d="M12 3 2 21h20zm0 5 5.5 10h-11z"/>',
   sports: '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 12h18M12 3c3.5 3 3.5 15 0 18M12 3c-3.5 3-3.5 15 0 18" fill="none" stroke="currentColor" stroke-width="1.6"/>',
   other: '<circle cx="7" cy="7" r="3"/><circle cx="17" cy="7" r="3"/><circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3"/>',
+  dice: '<path fill-rule="evenodd" d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zm2.5 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm7 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM12 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM8.5 14a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm7 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/>',
+  coin: '<path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12z"/>',
+  star: '<path d="M12 2.5l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.4l-5.9 3.3 1.3-6.6L2.5 9.5l6.6-.8z"/>',
+  heart: '<path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z"/>',
+  bomb: '<circle cx="11" cy="14" r="7.5"/><path d="M16 8l3-3m0 0 1-2m-1 2 2 .5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   lock: '<path d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z"/>',
   play: '<path d="M8 5v14l11-7z"/>',
   search: '<path d="M10 3a7 7 0 0 1 5.6 11.2l4.6 4.6-1.4 1.4-4.6-4.6A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/>',
@@ -1041,7 +1046,7 @@ async function gameModal(g) {
 }
 
 function categoryModal(c) {
-  const iconKeys = ['cards', 'action', 'puzzle', 'adventure', 'sports', 'other'];
+  const iconKeys = ['cards', 'dice', 'action', 'puzzle', 'adventure', 'sports', 'coin', 'star', 'heart', 'bomb', 'other'];
   openModal(`
     <form id="cf" class="form" novalidate>
       <h2>${c ? 'แก้ไขหมวดหมู่' : 'เพิ่มหมวดหมู่'}</h2>
