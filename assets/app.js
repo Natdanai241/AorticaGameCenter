@@ -399,7 +399,7 @@ const gameCard = (g) => `
     </div>
     <div class="gbody">
       <h3>${esc(g.title)}</h3>
-      <p class="cat">${esc(g.category_name || 'ไม่มีหมวดหมู่')}</p>
+      <p class="cat">${esc((g.category_names || []).join(' · ') || g.category_name || 'ไม่มีหมวดหมู่')}</p>
       ${(g.modes || []).length ? `<div class="tags">${modeChips(g.modes)}</div>` : ''}
       <p class="desc">${esc(g.short_description)}</p>
       <span class="access ${g.can_play ? 'ok' : 'no'}">${g.can_play ? 'พร้อมเล่น' : `ล็อก · ระดับ ${TIER_LABEL[g.min_tier]} ขึ้นไป`}</span>
@@ -420,9 +420,9 @@ function filteredGames() {
   const { q: query, cat, access, sort } = state.f;
   const needle = query.trim().toLowerCase();
   const list = state.library.filter((g) =>
-    (cat === 'all' || g.category_id === cat)
+    (cat === 'all' || (g.category_ids || []).includes(cat))
     && (access === 'all' || (access === 'open' ? g.can_play : !g.can_play))
-    && (!needle || [g.title, g.short_description, g.category_name].some((s) => (s || '').toLowerCase().includes(needle))));
+    && (!needle || [g.title, g.short_description, ...(g.category_names || [])].some((s) => (s || '').toLowerCase().includes(needle))));
   if (sort === 'az') list.sort((a, b) => a.title.localeCompare(b.title, 'th'));
   else if (sort === 'tier') list.sort((a, b) => tierRank(a.min_tier) - tierRank(b.min_tier));
   return list;
@@ -457,7 +457,7 @@ async function renderLibrary() {
   const playable = state.library.filter((g) => g.can_play).length;
   const featured = state.library.filter((g) => g.is_featured);
   const recent = state.library.slice(0, 10);
-  const count = (id) => state.library.filter((g) => g.category_id === id).length;
+  const count = (id) => state.library.filter((g) => (g.category_ids || []).includes(id)).length;
 
   main().innerHTML = `
     <section class="hero">
@@ -997,8 +997,9 @@ async function gameModal(g) {
       <div class="cols">
         <label>ชื่อเกม *<input name="title" required maxlength="80" value="${esc(g?.title)}"></label>
         <label>Slug (a-z, 0-9, -) *<input name="slug" required maxlength="60" value="${esc(g?.slug)}" autocapitalize="none"></label>
-        <label>หมวดหมู่<select name="category_id"><option value="">— ไม่มี —</option>
-          ${cats.map((c) => `<option value="${c.id}" ${g?.category_id === c.id ? 'selected' : ''}>${esc(c.name_th)}</option>`).join('')}</select></label>
+                <fieldset class="ovr" style="grid-column:1/-1"><legend>หมวดหมู่ (เลือกได้หลายหมวด)</legend>
+          ${cats.map((c) => `<label class="check"><input type="checkbox" name="category_ids" value="${c.id}" ${(g?.category_ids?.length ? g.category_ids : (g?.category_id ? [g.category_id] : [])).includes(c.id) ? 'checked' : ''}> ${esc(c.name_th)}</label>`).join('')}
+        </fieldset>
         <label>ระดับขั้นต่ำ *<select name="min_tier">${tierOptions(g?.min_tier || 'normal')}</select></label>
       </div>
       <label>ลิงก์เล่นเกม (HTTPS) *<input name="play_url" type="url" required value="${esc(src?.play_url)}" placeholder="https://your-game-host.example/game/index.html"></label>
@@ -1034,9 +1035,11 @@ async function gameModal(g) {
         if (!https(f.play_url.trim())) throw new Error('ลิงก์เล่นเกมต้องขึ้นต้นด้วย https://');
         if (f.thumbnail_url.trim() && !https(f.thumbnail_url.trim())) throw new Error('ลิงก์ภาพปกต้องขึ้นต้นด้วย https://');
         if (shots.some((u) => !https(u))) throw new Error('ลิงก์ภาพหน้าจอทุกรายการต้องขึ้นต้นด้วย https://');
-
+        
+        const catIds = $$('input[name="category_ids"]:checked', ev.target).map((x) => x.value);
         const payload = {
-          title: f.title.trim(), slug, category_id: f.category_id || null, min_tier: f.min_tier,
+          title: f.title.trim(), slug, min_tier: f.min_tier,
+          category_ids: catIds, category_id: catIds[0] || null,
           thumbnail_url: f.thumbnail_url.trim() || null, short_description: f.short_description.trim(),
           description: f.description.trim(), screenshots: shots,
           is_published: !!f.is_published, is_featured: !!f.is_featured,
