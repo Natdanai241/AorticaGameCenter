@@ -1,0 +1,37 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    - cron: '23 2 * * *'   # ทุกวัน 09:23 เวลาไทย
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Missing secrets SUPABASE_URL / SUPABASE_ANON_KEY"; exit 1
+          fi
+          BASE="${SUPABASE_URL%/}"; BASE="${BASE%/rest/v1}"
+          code=$(curl -sS -o /tmp/out.json -w '%{http_code}' \
+            --retry 3 --retry-delay 10 --max-time 30 \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            "${BASE}/rest/v1/membership_tiers?select=code&limit=1")
+          echo "HTTP ${code}"
+          cat /tmp/out.json
+          [ "$code" = "200" ]
