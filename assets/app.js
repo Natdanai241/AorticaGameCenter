@@ -718,7 +718,7 @@ async function renderAccount() {
 }
 
 // ---------------------------------------------------------------- GM control center
-const GM_TABS = [['overview', 'ภาพรวม'], ['users', 'สมาชิก'], ['games', 'จัดการเกม'], ['featured', 'เกมแนะนำ'], ['categories', 'หมวดหมู่'],
+const GM_TABS = [['overview', 'ภาพรวม'], ['users', 'สมาชิก'], ['messages', 'ข้อความผู้เล่น'], ['games', 'จัดการเกม'], ['featured', 'เกมแนะนำ'], ['categories', 'หมวดหมู่'],
   ['tiers', 'ระดับสมาชิก'], ['settings', 'ตั้งค่าระบบ'], ['logs', 'บันทึกกิจกรรม']];
 
 async function renderGM(tab) {
@@ -897,6 +897,64 @@ const GM_VIEWS = {
     });
   },
   
+  async messages(el) {
+    const showList = async () => {
+      const th = (await q(sb.rpc('gm_inbox'))) || [];
+      const unread = th.reduce((n, t) => n + Number(t.unread), 0);
+      el.innerHTML = `
+        <div class="toolbar"><span class="muted">${th.length} บทสนทนา · ยังไม่ได้อ่าน ${unread}</span></div>
+        <div class="table-wrap"><table class="tbl">
+          <thead><tr><th>เกม</th><th>ผู้เล่น</th><th>ข้อความล่าสุด</th><th>เวลา</th><th></th></tr></thead>
+          <tbody>${th.map((t, i) => `<tr data-i="${i}">
+            <td><b>${esc(t.game_title)}</b></td>
+            <td>${esc(t.display_name || t.username)}<br><span class="muted small">@${esc(t.username)}</span></td>
+            <td>${esc(String(t.last_body).slice(0, 80))}${Number(t.unread) ? ` <span class="tag warn">ใหม่ ${t.unread}</span>` : ''}</td>
+            <td>${fmtDateTime(t.last_at)}</td>
+            <td>${actBtn('open', 'เปิดอ่าน/ตอบ', 'primary')}</td>
+          </tr>`).join('') || '<tr><td colspan="5" class="muted">ยังไม่มีข้อความจากผู้เล่น</td></tr>'}</tbody>
+        </table></div>`;
+      el.onclick = (e) => {
+        const b = e.target.closest('[data-act="open"]'); if (!b) return;
+        showThread(th[Number(b.closest('tr').dataset.i)]).catch((er) => toast(er.message, 'err'));
+      };
+    };
+    const showThread = async (t) => {
+      const who = t.display_name || t.username;
+      const msgs = await q(sb.from('game_messages').select('id, sender, body, created_at')
+        .eq('game_id', t.game_id).eq('user_id', t.user_id).order('created_at'));
+      sb.rpc('mark_messages_read', { p_game: t.game_id, p_user: t.user_id }).then(() => {}, () => {});
+      el.innerHTML = `
+        <div class="toolbar"><button class="btn ghost sm" data-act="back">‹ กลับกล่องข้อความ</button>
+          <span><b>${esc(t.game_title)}</b> · ${esc(who)} <span class="muted small">@${esc(t.username)}</span></span></div>
+        <section class="card">
+          <div class="msg-list">${msgs.map((m) => `
+            <div class="msg ${m.sender === 'gm' ? 'mine' : ''}">
+              <b>${m.sender === 'gm' ? 'GM' : esc(who)}</b><span class="muted small"> · ${fmtDateTime(m.created_at)}</span>
+              <p>${esc(m.body).replace(/\n/g, '<br>')}</p></div>`).join('')}</div>
+          <form class="form" id="replyForm" novalidate>
+            <label>ตอบกลับ<textarea name="body" rows="3" maxlength="1000" required placeholder="พิมพ์คำตอบถึงผู้เล่น..."></textarea></label>
+            <p class="form-msg" id="replyErr" role="alert"></p>
+            <button class="btn primary sm" type="submit">ส่งคำตอบ</button>
+          </form>
+        </section>`;
+      el.onclick = (e) => {
+        if (e.target.closest('[data-act="back"]')) showList().catch((er) => { el.innerHTML = errorBox(er.message); });
+      };
+      $('#replyForm', el).addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const body = ev.target.body.value.trim();
+        const err = $('#replyErr', el);
+        if (!body) { err.textContent = 'กรุณาพิมพ์ข้อความ'; return; }
+        const btn = $('button[type="submit"]', ev.target); btn.disabled = true;
+        try {
+          await q(sb.rpc('gm_reply_message', { p_game: t.game_id, p_user: t.user_id, p_body: body }));
+          toast('ส่งคำตอบแล้ว');
+          await showThread(t);
+        } catch (e2) { err.textContent = e2.message; btn.disabled = false; }
+      });
+    };
+    await showList();
+  },
   async categories(el) {
     const cats = await q(sb.from('categories').select('*').order('sort_order'));
     el.innerHTML = `
