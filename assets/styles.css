@@ -295,3 +295,9 @@ legend{padding:0 6px;color:var(--muted);font-size:13px}
 @media (min-width:860px){.toast{bottom:24px}}
 
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+.msg-list{display:flex;flex-direction:column;gap:10px;margin:14px 0;max-height:360px;overflow:auto}
+.msg{padding:10px 14px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.03);max-width:92%}
+.msg.mine{align-self:flex-end}
+.msg.from-gm{align-self:flex-start;border-color:var(--line-strong);background:rgba(168,85,247,.12)}
+.msg p{margin:6px 0 0;overflow-wrap:anywhere}
