@@ -104,6 +104,7 @@ const ERR_TH = {
   INVALID_DATES: 'วันหมดอายุต้องอยู่หลังวันที่เริ่ม',
   INVALID_TIER: 'ระดับสมาชิกไม่ถูกต้อง',
   FORBIDDEN: 'คุณไม่มีสิทธิ์ทำรายการนี้',
+  RATE_LIMIT: 'ส่งข้อความบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่',
 };
 function dbErr(e) {
   const m = e?.message || '';
@@ -561,10 +562,44 @@ async function renderGame(id) {
         </div>
       </article>
       ${g.description ? `<section class="block card prose"><h2>รายละเอียดเกม</h2><p>${esc(g.description).replace(/\n/g, '<br>')}</p></section>` : ''}
-      ${shots.length ? `<section class="block"><h2>ภาพหน้าจอ</h2><div class="shots">${shots.map((u) => `<img src="${esc(u)}" alt="ภาพหน้าจอ ${esc(g.title)}" loading="lazy">`).join('')}</div></section>` : ''}`;
+      ${shots.length ? `<section class="block"><h2>ภาพหน้าจอ</h2><div class="shots">${shots.map((u) => `<img src="${esc(u)}" alt="ภาพหน้าจอ ${esc(g.title)}" loading="lazy">`).join('')}</div></section>` : ''}
+      <section class="block card" id="msgBox"></section>`;
+    await mountMessages(g.id);
   } catch (e) { main().innerHTML = errorBox(e.message, '#/library'); }
 }
-
+async function mountMessages(gameId) {
+  const box = $('#msgBox'); if (!box) return;
+  const draw = async () => {
+    const msgs = await q(sb.from('game_messages').select('id, sender, body, created_at')
+      .eq('game_id', gameId).eq('user_id', state.session.user.id).order('created_at'));
+    box.innerHTML = `
+      <h2>ข้อความถึงผู้พัฒนา</h2>
+      <p class="muted small">แจ้งปัญหา ข้อเสนอแนะ หรือคำถามเกี่ยวกับเกมนี้ ผู้พัฒนาจะตอบกลับที่นี่</p>
+      <div class="msg-list">${msgs.map((m) => `
+        <div class="msg ${m.sender === 'gm' ? 'from-gm' : 'mine'}">
+          <b>${m.sender === 'gm' ? 'ผู้พัฒนา' : 'คุณ'}</b><span class="muted small"> · ${fmtDateTime(m.created_at)}</span>
+          <p>${esc(m.body).replace(/\n/g, '<br>')}</p></div>`).join('') || '<p class="muted small">ยังไม่มีข้อความ</p>'}</div>
+      <form class="form" id="msgForm" novalidate>
+        <label>ข้อความของคุณ<textarea name="body" rows="3" maxlength="1000" required placeholder="พิมพ์ข้อความถึงผู้พัฒนา..."></textarea></label>
+        <p class="form-msg" id="msgErr" role="alert"></p>
+        <button class="btn primary sm" type="submit">ส่งข้อความ</button>
+      </form>`;
+    $('#msgForm', box).addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const body = ev.target.body.value.trim();
+      const err = $('#msgErr', box);
+      if (!body) { err.textContent = 'กรุณาพิมพ์ข้อความ'; return; }
+      const btn = $('button[type="submit"]', ev.target); btn.disabled = true;
+      try {
+        await q(sb.rpc('send_game_message', { p_game: gameId, p_body: body }));
+        toast('ส่งข้อความแล้ว');
+        await draw();
+      } catch (e2) { err.textContent = e2.message; btn.disabled = false; }
+    });
+    if (msgs.some((m) => m.sender === 'gm')) sb.rpc('mark_messages_read', { p_game: gameId }).then(() => {}, () => {});
+  };
+  try { await draw(); } catch { box.remove(); }
+}
 async function renderPlay(id) {
   main().innerHTML = loading();
   try {
