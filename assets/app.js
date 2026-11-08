@@ -677,7 +677,7 @@ async function renderAccount() {
 }
 
 // ---------------------------------------------------------------- GM control center
-const GM_TABS = [['overview', 'ภาพรวม'], ['users', 'สมาชิก'], ['games', 'จัดการเกม'], ['categories', 'หมวดหมู่'],
+const GM_TABS = [['overview', 'ภาพรวม'], ['users', 'สมาชิก'], ['games', 'จัดการเกม'], ['featured', 'เกมแนะนำ'], ['categories', 'หมวดหมู่'],
   ['tiers', 'ระดับสมาชิก'], ['settings', 'ตั้งค่าระบบ'], ['logs', 'บันทึกกิจกรรม']];
 
 async function renderGM(tab) {
@@ -819,6 +819,43 @@ const GM_VIEWS = {
     });
   },
 
+  async featured(el) {
+    const games = await q(sb.from('games')
+      .select('id, title, slug, min_tier, is_published, is_featured').order('title'));
+    const feat = games.filter((g) => g.is_featured);
+    const rest = games.filter((g) => !g.is_featured && g.is_published);
+    const head = '<thead><tr><th>ชื่อเกม</th><th>ระดับขั้นต่ำ</th><th>สถานะ</th><th>การจัดการ</th></tr></thead>';
+    const row = (g, add) => `<tr data-id="${g.id}" data-s="${esc(`${g.title} ${g.slug}`.toLowerCase())}">
+        <td><b>${esc(g.title)}</b><br><span class="muted small">${esc(g.slug)}</span></td>
+        <td>${tierBadge(g.min_tier)}</td>
+        <td>${g.is_published ? '<span class="st st-active">เผยแพร่แล้ว</span>' : '<span class="st st-pending">ฉบับร่าง</span>'}</td>
+        <td><div class="actions">${add ? actBtn('add', '★ เพิ่มเป็นเกมแนะนำ', 'primary') : actBtn('rm', 'นำออก', 'danger')}</div></td>
+      </tr>`;
+    el.innerHTML = `
+      <div class="toolbar"><span class="muted">เกมแนะนำตอนนี้ ${feat.length} เกม · เล่นได้ทุกระดับสมาชิก</span></div>
+      <div class="table-wrap"><table class="tbl">${head}
+        <tbody>${feat.map((g) => row(g, false)).join('') || '<tr><td colspan="4" class="muted">ยังไม่มีเกมแนะนำ</td></tr>'}</tbody>
+      </table></div>
+      <div class="toolbar" style="margin-top:20px"><span class="muted">เกมที่เผยแพร่แล้ว ${rest.length} เกม</span>
+        <input type="search" id="fq" placeholder="ค้นหาเกมที่จะเพิ่ม" aria-label="ค้นหาเกม"></div>
+      <div class="table-wrap"><table class="tbl" id="restTbl">${head}
+        <tbody>${rest.map((g) => row(g, true)).join('') || '<tr><td colspan="4" class="muted">ไม่มีเกมที่เพิ่มได้</td></tr>'}</tbody>
+      </table></div>`;
+    $('#fq', el).addEventListener('input', (e) => {
+      const s = e.target.value.trim().toLowerCase();
+      $$('#restTbl tbody tr[data-id]', el).forEach((tr) => { tr.hidden = !!s && !tr.dataset.s.includes(s); });
+    });
+    el.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      b.disabled = true;
+      try {
+        await q(sb.from('games').update({ is_featured: b.dataset.act === 'add' }).eq('id', b.closest('tr').dataset.id));
+        toast(b.dataset.act === 'add' ? 'เพิ่มเป็นเกมแนะนำแล้ว' : 'นำออกจากเกมแนะนำแล้ว');
+        rerenderGM('featured');
+      } catch (err) { b.disabled = false; toast(err.message, 'err'); }
+    });
+  },
+  
   async categories(el) {
     const cats = await q(sb.from('categories').select('*').order('sort_order'));
     el.innerHTML = `
