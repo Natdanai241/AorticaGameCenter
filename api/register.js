@@ -53,8 +53,8 @@ export default async function handler(req, res) {
     const needsConfirm = !data.session;
     send(res, 201, {
       message: needsConfirm
-        ? 'สมัครสมาชิกสำเร็จ! กรุณายืนยันอีเมลของคุณ จากนั้นรอ GM อนุมัติบัญชี'
-        : 'สมัครสมาชิกสำเร็จ! บัญชีของคุณกำลังรอการอนุมัติจาก GM',
+        ? 'สมัครสมาชิกสำเร็จ! กรุณายืนยันอีเมลของคุณ แล้วเข้าสู่ระบบเพื่อรับสิทธิ์ VIP Trial ได้ทันที'
+        : 'สมัครสมาชิกสำเร็จ! คุณได้รับสิทธิ์ VIP Trial แล้ว เข้าสู่ระบบได้ทันที',
     });
   } catch (e) {
     console.error('register', e);
