@@ -233,6 +233,9 @@ legend{padding:0 6px;color:var(--muted);font-size:13px}
 .player-bar strong{flex:1;font-size:16px;min-width:120px}
 .player iframe{flex:1;width:100%;border:1px solid var(--line-strong);border-radius:16px;background:#000;box-shadow:0 0 40px -10px rgba(168,85,247,.6)}
 @media (min-width:860px){.player{height:calc(100dvh - var(--nav-h) - 70px)}}
+.player.is-full{position:fixed;inset:0;z-index:1000;height:100dvh;min-height:0;gap:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);background:#000;overscroll-behavior:contain}
+.player.is-full .player-bar{padding:6px 10px;background:rgba(10,10,20,.92);flex-wrap:nowrap}
+.player.is-full iframe{border:0;border-radius:0;box-shadow:none}
 
 /* ---------- Membership & account ---------- */
 .tiers{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-top:20px}
