@@ -258,7 +258,7 @@ async function renderAuth(tab) {
       <label class="check"><input type="checkbox" name="agree" required> ฉันยอมรับเงื่อนไขการใช้งานของ Aortica Game Center</label>
       <p class="form-msg" id="authMsg" role="alert"></p>
       <button class="btn primary block" type="submit">สมัครสมาชิก</button>
-      <p class="hint">บัญชีใหม่ต้องรอ GM อนุมัติก่อนเข้าคลังเกม</p>
+      <p class="hint">สมาชิกใหม่ได้ใช้ VIP Trial ทันทีหลังสมัคร ไม่ต้องรอ GM อนุมัติ เมื่อครบเวลาจะเป็นระดับ Normal (ฟรี)</p>
     </form>`;
 
   main().innerHTML = `
@@ -435,9 +435,16 @@ function drawGrid() {
   $('#countLbl').textContent = `${list.length} เกม`;
 }
 
+const trialLeft = (iso) => {
+  const ms = new Date(iso) - Date.now();
+  const d = Math.floor(ms / 864e5), h = Math.floor((ms % 864e5) / 36e5);
+  return d > 0 ? `${d} วัน ${h} ชม.` : (h > 0 ? `${h} ชม.` : 'ไม่ถึง 1 ชม.');
+};
+
 function membershipLine() {
   const m = state.membership;
   if (!state.tier) return 'สมาชิกภาพของคุณไม่ได้ใช้งานอยู่ กรุณาติดต่อ GM';
+  if (m?.is_trial && m.expires_at && new Date(m.expires_at) > new Date()) return `VIP Trial เหลือ ${trialLeft(m.expires_at)}`;
   if (m?.expires_at) return `หมดอายุ ${fmtDate(m.expires_at)}`;
   return 'ไม่มีวันหมดอายุ';
 }
@@ -648,8 +655,7 @@ async function renderAccount() {
             <div><dt>วันหมดอายุ</dt><dd>${m.expires_at ? fmtDate(m.expires_at) : 'ไม่มีวันหมดอายุ'}</dd></div>
             <div><dt>ต่ออายุล่าสุด</dt><dd>${fmtDate(m.last_renewed_at)}</dd></div>
           </dl>
-          ${expired ? `<p class="note">${icon('info')} สมาชิกภาพหมดอายุแล้ว สิทธิ์ของคุณถูกปรับตามนโยบายของ GM กรุณาติดต่อ GM เพื่อต่ออายุ</p>` : ''}
-        </article>
+              ${m.is_trial && !expired ? `<p class="note">${icon('info')} คุณกำลังใช้ VIP Trial เหลือ ${trialLeft(m.expires_at)} เมื่อครบเวลาจะเปลี่ยนเป็นระดับ Normal (ฟรี)</p>` : m.is_trial ? `<p class="note">${icon('info')} ช่วง VIP Trial สิ้นสุดแล้ว ตอนนี้คุณใช้ระดับ Normal (ฟรี) เกมแนะนำยังเล่นได้ทุกเกม</p>` : expired ? `<p class="note">${icon('info')} สมาชิกภาพหมดอายุแล้ว สิทธิ์ของคุณถูกปรับตามนโยบายของ GM กรุณาติดต่อ GM เพื่อต่ออายุ</p>` : ''}
         <article class="card">
           <h2>ตั้งค่าบัญชี</h2>
           <form id="nameForm" class="form">
