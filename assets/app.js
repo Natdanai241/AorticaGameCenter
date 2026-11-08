@@ -572,14 +572,26 @@ async function renderPlay(id) {
         <div class="player-bar">
           <a class="btn ghost sm" href="#/game/${esc(id)}">‹ กลับ</a>
           <strong>${esc(title)}</strong>
-          <button class="btn ghost sm" id="fsBtn">เต็มจอ</button>
-          <a class="btn ghost sm" href="${esc(url)}" target="_blank" rel="noopener noreferrer">เปิดในแท็บใหม่</a>
+          <button class="btn ghost sm" id="fsBtn" type="button">ขยายเต็มจอ</button>
         </div>
         <iframe id="frame" src="${esc(url)}" title="${esc(title)}" allow="fullscreen; gamepad; autoplay"
           allowfullscreen referrerpolicy="no-referrer"
           sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-popups"></iframe>
       </section>`;
-    $('#fsBtn').onclick = () => $('#frame').requestFullscreen?.().catch(() => toast('อุปกรณ์นี้ไม่รองรับโหมดเต็มจอ', 'err'));
+        const sec = $('.player'), fsBtn = $('#fsBtn');
+    const setFull = (on) => {
+      sec.classList.toggle('is-full', on);
+      fsBtn.textContent = on ? 'ย่อหน้าจอ' : 'ขยายเต็มจอ';
+    };
+    fsBtn.onclick = async () => {
+      const on = !sec.classList.contains('is-full');
+      setFull(on);
+      try {
+        if (on) await sec.requestFullscreen?.();
+        else if (document.fullscreenElement) await document.exitFullscreen();
+      } catch { /* iPhone: ใช้เต็มหน้าจอแบบ CSS แทน */ }
+    };
+    sec.onfullscreenchange = () => { if (!document.fullscreenElement) setFull(false); }
   } catch (e) { main().innerHTML = errorBox(e.message, `#/game/${encodeURIComponent(id)}`); }
 }
 
