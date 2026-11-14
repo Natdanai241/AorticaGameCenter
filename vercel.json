@@ -1,4 +1,8 @@
 {
+  "functions": {
+    "api/game-media.js": { "maxDuration": 60 },
+    "api/shot-page.js": { "maxDuration": 10 }
+  },
   "headers": [
     {
       "source": "/(.*)",
