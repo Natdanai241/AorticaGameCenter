@@ -1135,7 +1135,16 @@ function reasonModal(u, action) {
     });
   });
 }
-
+async function autoShot(gameId, force = false) {
+  toast('กำลังแคปภาพหน้าจอเกม... (ไม่เกิน 1 นาที)');
+  try {
+    const r = await api('/api/game-media', { gameId, force }, true);
+    if (r.skipped === 'disabled') { toast('ปิดการแคปภาพอัตโนมัติอยู่'); return; }
+    if (r.skipped) return;
+    toast('แคปภาพหน้าจอเกมเรียบร้อย');
+    if (location.hash === '#/gm/games') rerenderGM('games');
+  } catch (e) { toast(e.message, 'err'); }
+}
 async function gameModal(g) {
   let src = null; let ovr = [];
   const cats = await q(sb.from('categories').select('id,name_th').order('sort_order'));
@@ -1209,7 +1218,9 @@ async function gameModal(g) {
           if (v === 'inherit') await q(sb.from('game_tier_overrides').delete().eq('game_id', id).eq('tier_code', t));
           else await q(sb.from('game_tier_overrides').upsert({ game_id: id, tier_code: t, allowed: v === 'allow' }));
         }
+                const linkChanged = !g || (src?.play_url || '') !== f.play_url.trim();
         closeModal(); toast('บันทึกเกมเรียบร้อย'); rerenderGM('games');
+        if (linkChanged) autoShot(id);
       }, $('#gfMsg', d));
     });
   });
