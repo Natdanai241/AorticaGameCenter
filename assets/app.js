@@ -821,10 +821,23 @@ const GM_VIEWS = {
   },
 
   async games(el) {
-    const [games, allCats] = await Promise.all([
+    const [games, allCats, jobRows] = await Promise.all([
       q(sb.from('games').select('*').order('created_at', { ascending: false })),
       q(sb.from('categories').select('id, name_th')),
+          q(sb.from('media_jobs').select('game_id, status, error, created_at').eq('kind', 'screenshot')
+        .order('created_at', { ascending: false }).limit(300)).catch(() => []),
     ]);
+    const jobs = {};
+    (jobRows || []).forEach((j) => { if (!jobs[j.game_id]) jobs[j.game_id] = j; });
+    const shotCell = (g) => {
+      const n = Array.isArray(g.screenshots) ? g.screenshots.length : 0;
+      const j = jobs[g.id];
+      const fresh = j && Date.now() - new Date(j.created_at).getTime() < 120000;
+      let st = '';
+      if (j?.status === 'working' && fresh) st = ' <span class="st st-pending">กำลังแคป</span>';
+      else if (j?.status === 'error') st = ` <span class="st st-suspended" title="${esc(j.error || '')}">แคปไม่สำเร็จ</span>`;
+      return `${n} รูป${st}`;
+    };
     const catNames = (g) => (g.category_ids?.length ? g.category_ids : (g.category_id ? [g.category_id] : []))
       .map((cid) => (allCats || []).find((c) => c.id === cid)?.name_th).filter(Boolean).join(', ');
     el.innerHTML = `
@@ -832,7 +845,7 @@ const GM_VIEWS = {
         <input type="search" id="gq" placeholder="ค้นหาชื่อเกม, slug หรือหมวดหมู่" aria-label="ค้นหาเกม">
         <button class="btn primary sm" id="addGame">${icon('plus')} เพิ่มเกม</button></div>
       <div class="table-wrap"><table class="tbl">
-        <thead><tr><th>ชื่อเกม</th><th>หมวดหมู่</th><th>ระดับขั้นต่ำ</th><th>สถานะ</th><th>แนะนำ</th><th>อัปเดต</th><th>การจัดการ</th></tr></thead>
+          <thead><tr><th>ชื่อเกม</th><th>หมวดหมู่</th><th>ระดับขั้นต่ำ</th><th>สถานะ</th><th>แนะนำ</th><th>อัปเดต</th><th>ภาพหน้าจอ</th><th>การจัดการ</th></tr></thead>
           <tbody>${games.map((g) => `<tr data-id="${g.id}" data-s="${esc(`${g.title} ${g.slug} ${catNames(g)}`.toLowerCase())}">
           <td><b>${esc(g.title)}</b><br><span class="muted small">${esc(g.slug)}</span></td>
           <td>${esc(catNames(g) || '—')}</td>
@@ -840,8 +853,9 @@ const GM_VIEWS = {
           <td>${g.is_published ? '<span class="st st-active">เผยแพร่แล้ว</span>' : '<span class="st st-pending">ฉบับร่าง</span>'}</td>
           <td>${g.is_featured ? '★' : '—'}</td>
           <td>${fmtDate(g.updated_at)}</td>
-          <td><div class="actions">${actBtn('edit', 'แก้ไข')}${actBtn('view', 'ดูหน้าเกม')}${actBtn('del', 'ลบ', 'danger')}</div></td>
-        </tr>`).join('') || '<tr><td colspan="7" class="muted">ยังไม่มีเกม กด “เพิ่มเกม” เพื่อเริ่มต้น</td></tr>'}</tbody>
+          <td>${shotCell(g)}</td>
+          <td><div class="actions">${actBtn('edit', 'แก้ไข')}${actBtn('view', 'ดูหน้าเกม')}${actBtn('shot', 'แคปภาพใหม่')}${actBtn('del', 'ลบ', 'danger')}</div></td>
+          </tr>`).join('') || '<tr><td colspan="8" class="muted">ยังไม่มีเกม กด “เพิ่มเกม” เพื่อเริ่มต้น</td></tr>'}</tbody>
       </table></div>`;
     $('#addGame').onclick = () => gameModal(null);
     $('#gq', el).addEventListener('input', (e) => {
@@ -853,6 +867,7 @@ const GM_VIEWS = {
       const g = games.find((x) => x.id === b.closest('tr').dataset.id); if (!g) return;
       if (b.dataset.act === 'edit') gameModal(g);
       else if (b.dataset.act === 'view') go(`game/${g.id}`);
+      else if (b.dataset.act === 'shot') autoShot(g.id, true);  
       else confirmModal('ลบเกม', `ต้องการลบ “${g.title}” ถาวรหรือไม่? การลบไม่สามารถย้อนกลับได้`, async () => {
         await q(sb.from('games').delete().eq('id', g.id));
         toast('ลบเกมแล้ว'); rerenderGM('games');
