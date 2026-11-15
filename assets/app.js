@@ -1160,6 +1160,50 @@ async function autoShot(gameId, force = false) {
     if (location.hash === '#/gm/games') rerenderGM('games');
   } catch (e) { toast(e.message, 'err'); }
 }
+async function resizeToJpeg(file, maxW = 1280) {
+  const dataUrl = await new Promise((ok, no) => {
+    const r = new FileReader();
+    r.onload = () => ok(r.result);
+    r.onerror = () => no(new Error('อ่านไฟล์ไม่ได้'));
+    r.readAsDataURL(file);
+  });
+  const img = await new Promise((ok, no) => {
+    const i = new Image();
+    i.onload = () => ok(i);
+    i.onerror = () => no(new Error('ไฟล์นี้ไม่ใช่รูปภาพที่รองรับ'));
+    i.src = dataUrl;
+  });
+  const scale = Math.min(1, maxW / img.naturalWidth);
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.naturalWidth * scale);
+  c.height = Math.round(img.naturalHeight * scale);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return new Promise((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error('แปลงภาพไม่สำเร็จ'))), 'image/jpeg', 0.85));
+}
+
+async function uploadShots(files, area, status, slug) {
+  const MAX = 12;
+  const current = area.value.split('\n').map((s) => s.trim()).filter(Boolean);
+  const list = [...files].slice(0, Math.max(0, MAX - current.length));
+  if (!list.length) { status.textContent = 'มีภาพครบ 12 รูปแล้ว'; return; }
+  const folder = (slug || 'game').replace(/[^a-z0-9-]/g, '') || 'game';
+  const urls = [];
+  for (let i = 0; i < list.length; i += 1) {
+    status.textContent = `กำลังอัปโหลดรูปที่ ${i + 1}/${list.length}...`;
+    try {
+      const blob = await resizeToJpeg(list[i]);
+      const path = `manual/${folder}/${Date.now()}-${i}.jpg`;
+      const { error } = await sb.storage.from('game-media').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+      if (error) throw new Error(error.message);
+      urls.push(sb.storage.from('game-media').getPublicUrl(path).data.publicUrl);
+    } catch (e) { toast(`รูปที่ ${i + 1}: ${e.message}`, 'err'); }
+  }
+  area.value = [...current, ...urls].join('\n');
+  status.textContent = urls.length
+    ? `อัปโหลดแล้ว ${urls.length} รูป กด “บันทึกเกม” เพื่อยืนยัน`
+    : 'ไม่มีรูปที่อัปโหลดสำเร็จ';
+}
+
 async function gameModal(g) {
   let src = null; let ovr = [];
   const cats = await q(sb.from('categories').select('id,name_th').order('sort_order'));
@@ -1186,6 +1230,8 @@ async function gameModal(g) {
       <label>คำอธิบายสั้น<input name="short_description" maxlength="160" value="${esc(g?.short_description)}"></label>
       <label>รายละเอียด<textarea name="description" rows="4" maxlength="4000">${esc(g?.description)}</textarea></label>
       <label>ภาพหน้าจอ (ลิงก์ HTTPS บรรทัดละ 1 รูป)<textarea name="screenshots" rows="3">${esc((g?.screenshots || []).join('\n'))}</textarea></label>
+      <label>อัปโหลดภาพหน้าจอจากเครื่อง (เลือกได้หลายรูป)<input type="file" id="shotFiles" accept="image/*" multiple></label>
+      <p class="muted small" id="shotUp"></p>
       <fieldset class="ovr"><legend>ข้อยกเว้นรายระดับ (VIP เล่นได้ทุกเกมที่เผยแพร่เสมอ)</legend>
         ${['normal', 'plus', 'pro'].map((t) => `<label>${TIER_LABEL[t]}<select name="ovr_${t}">
           <option value="inherit">ตามค่าเริ่มต้น</option>
@@ -1202,6 +1248,12 @@ async function gameModal(g) {
       <p class="form-msg" id="gfMsg" role="alert"></p>
       <div class="row-end"><button type="button" class="btn ghost" data-close>ยกเลิก</button><button class="btn primary" type="submit">บันทึกเกม</button></div>
     </form>`, (d) => {
+      $('#shotFiles', d).addEventListener('change', async (e) => {
+      const area = $('textarea[name="screenshots"]', d);
+      const slug = $('input[name="slug"]', d).value.trim().toLowerCase();
+      await uploadShots(e.target.files, area, $('#shotUp', d), slug);
+      e.target.value = '';
+    });
     $('#gf', d).addEventListener('submit', (ev) => {
       ev.preventDefault();
       const f = Object.fromEntries(new FormData(ev.target));
