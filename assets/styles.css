@@ -189,7 +189,7 @@ legend{padding:0 6px;color:var(--muted);font-size:13px}
 .gcard:hover,.gcard:focus-visible{transform:translateY(-4px);border-color:var(--line-strong);
   box-shadow:0 16px 40px -14px rgba(168,85,247,.7),0 0 0 1px rgba(168,85,247,.25)}
 .thumb{position:relative;aspect-ratio:16/10;background:var(--panel-2);overflow:hidden}
-.thumb img{width:100%;height:100%;object-fit:cover;transition:transform .45s}
+.thumb img{width:100%;height:100%;object-fit:contain;transition:transform .45s}
 .gcard:hover .thumb img{transform:scale(1.07)}
 .thumb::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(8,6,16,.9))}
 .thumb-ph{display:grid;place-items:center;width:100%;height:100%;
@@ -214,7 +214,7 @@ legend{padding:0 6px;color:var(--muted);font-size:13px}
 .crumbs a{color:var(--cyan);text-decoration:none}
 .detail{display:grid;gap:20px}
 .detail-media{border-radius:20px;overflow:hidden;border:1px solid var(--line);aspect-ratio:16/10;background:var(--panel-2)}
-.detail-media img{width:100%;height:100%;object-fit:cover}
+.detail-media img{width:100%;height:100%;object-fit:contain}
 .detail-info h1{font-size:clamp(26px,4vw,38px)}
 @media (min-width:900px){.detail{grid-template-columns:1.2fr 1fr;align-items:start}}
 .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0 0}
@@ -226,7 +226,7 @@ legend{padding:0 6px;color:var(--muted);font-size:13px}
 .locked-panel p{color:var(--muted);font-size:14px;margin:4px 0 10px}
 .prose p{color:var(--muted)}
 .shots{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(240px,80%);gap:12px;overflow-x:auto;padding-bottom:8px}
-.shots img{border-radius:14px;border:1px solid var(--line);aspect-ratio:16/10;object-fit:cover}
+.shots img{border-radius:14px;border:1px solid var(--line);aspect-ratio:16/10;object-fit:contain;background:var(--panel-2)}
 @media (min-width:600px){.shots{grid-auto-columns:340px}}
 .player{display:flex;flex-direction:column;gap:10px;height:calc(100dvh - var(--nav-h) - var(--tab-h) - 60px);min-height:420px}
 .player-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
