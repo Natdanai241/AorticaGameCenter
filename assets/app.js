@@ -1203,6 +1203,22 @@ async function uploadShots(files, area, status, slug) {
     ? `อัปโหลดแล้ว ${urls.length} รูป กด “บันทึกเกม” เพื่อยืนยัน`
     : `ไม่มีรูปที่อัปโหลดสำเร็จ: ${lastErr}`;
 }
+async function uploadCover(file, input, status, slug) {
+  if (!file) return;
+  const folder = (slug || 'game').replace(/[^a-z0-9-]/g, '') || 'game';
+  status.textContent = 'กำลังอัปโหลดภาพปก...';
+  try {
+    const blob = await resizeToJpeg(file);
+    const path = `covers/${folder}/${Date.now()}.jpg`;
+    const { error } = await sb.storage.from('game-media').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+    if (error) throw new Error(error.message);
+    input.value = sb.storage.from('game-media').getPublicUrl(path).data.publicUrl;
+    status.textContent = 'อัปโหลดภาพปกแล้ว กด “บันทึกเกม” เพื่อยืนยัน';
+  } catch (e) {
+    status.textContent = `อัปโหลดภาพปกไม่สำเร็จ: ${e.message}`;
+    toast(e.message, 'err');
+  }
+}
 
 async function gameModal(g) {
   let src = null; let ovr = [];
@@ -1226,6 +1242,8 @@ async function gameModal(g) {
         <label>ระดับขั้นต่ำ *<select name="min_tier">${tierOptions(g?.min_tier || 'normal')}</select></label>
       </div>
       <label>ลิงก์เล่นเกม (HTTPS) *<input name="play_url" type="url" required value="${esc(src?.play_url)}" placeholder="https://your-game-host.example/game/index.html"></label>
+      <label>อัปโหลดภาพปกจากเครื่อง (ระบบเติมลิงก์ให้เอง)<input type="file" id="coverFile" accept="image/*"></label>
+      <p class="muted small" id="coverUp"></p>
       <label>ลิงก์ภาพปก (HTTPS)<input name="thumbnail_url" type="url" value="${esc(g?.thumbnail_url)}"></label>
       <label>คำอธิบายสั้น<input name="short_description" maxlength="160" value="${esc(g?.short_description)}"></label>
       <label>รายละเอียด<textarea name="description" rows="4" maxlength="4000">${esc(g?.description)}</textarea></label>
@@ -1248,6 +1266,11 @@ async function gameModal(g) {
       <p class="form-msg" id="gfMsg" role="alert"></p>
       <div class="row-end"><button type="button" class="btn ghost" data-close>ยกเลิก</button><button class="btn primary" type="submit">บันทึกเกม</button></div>
     </form>`, (d) => {
+      $('#coverFile', d).addEventListener('change', async (e) => {
+      const slug = $('input[name="slug"]', d).value.trim().toLowerCase();
+      await uploadCover(e.target.files[0], $('input[name="thumbnail_url"]', d), $('#coverUp', d), slug);
+      e.target.value = '';
+    });
       $('#shotFiles', d).addEventListener('change', async (e) => {
       const area = $('textarea[name="screenshots"]', d);
       const slug = $('input[name="slug"]', d).value.trim().toLowerCase();
