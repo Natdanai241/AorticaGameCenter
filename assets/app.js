@@ -1196,12 +1196,12 @@ async function uploadShots(files, area, status, slug) {
       const { error } = await sb.storage.from('game-media').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
       if (error) throw new Error(error.message);
       urls.push(sb.storage.from('game-media').getPublicUrl(path).data.publicUrl);
-    } catch (e) { toast(`รูปที่ ${i + 1}: ${e.message}`, 'err'); }
+    } catch (e) { lastErr = e.message; toast(`รูปที่ ${i + 1}: ${e.message}`, 'err'); }
   }
   area.value = [...current, ...urls].join('\n');
   status.textContent = urls.length
     ? `อัปโหลดแล้ว ${urls.length} รูป กด “บันทึกเกม” เพื่อยืนยัน`
-    : 'ไม่มีรูปที่อัปโหลดสำเร็จ';
+    : `ไม่มีรูปที่อัปโหลดสำเร็จ: ${lastErr}`;
 }
 
 async function gameModal(g) {
