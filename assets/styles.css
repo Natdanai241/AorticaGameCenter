@@ -301,3 +301,7 @@ legend{padding:0 6px;color:var(--muted);font-size:13px}
 .msg.mine{align-self:flex-end}
 .msg.from-gm{align-self:flex-start;border-color:var(--line-strong);background:rgba(168,85,247,.12)}
 .msg p{margin:6px 0 0;overflow-wrap:anywhere}
+.detail-media{position:relative}
+.thumb img.bg,.detail-media img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(24px) saturate(1.25) brightness(.8);opacity:.65;transform:scale(1.3);transition:none}
+.gcard .thumb img.bg,.gcard:hover .thumb img.bg{transform:scale(1.3)}
+.thumb img:not(.bg),.detail-media img:not(.bg){position:relative}
