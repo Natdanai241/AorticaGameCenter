@@ -393,7 +393,7 @@ const gameCard = (g) => `
   <a class="gcard ${g.can_play ? '' : 'locked'}" href="#/game/${g.id}"
      aria-label="${esc(g.title)} — ${g.can_play ? 'พร้อมเล่น' : `ล็อก ระดับแนะนำ ${TIER_LABEL[g.min_tier]}`}">
     <div class="thumb">
-      ${g.thumbnail_url ? `<img src="${esc(g.thumbnail_url)}" alt="" loading="lazy">` : `<div class="thumb-ph">${icon(g.category_icon)}</div>`}
+      ${g.thumbnail_url ? `<img class="bg" src="${esc(g.thumbnail_url)}" alt="" aria-hidden="true" loading="lazy"><img src="${esc(g.thumbnail_url)}" alt="" loading="lazy">` : `<div class="thumb-ph">${icon(g.category_icon)}</div>`}
       ${tierBadge(g.min_tier)}
       ${g.can_play ? '' : `<span class="lock">${icon('lock')}</span>`}
       ${g.is_published === false ? '<span class="tag warn draft">ฉบับร่าง</span>' : ''}
@@ -545,7 +545,7 @@ async function renderGame(id) {
     main().innerHTML = `
       <nav class="crumbs" aria-label="เส้นทาง"><a href="#/library">คลังเกม</a><span aria-hidden="true">/</span><span>${esc(g.title)}</span></nav>
       <article class="detail">
-        <div class="detail-media">${g.thumbnail_url ? `<img src="${esc(g.thumbnail_url)}" alt="ภาพปกเกม ${esc(g.title)}">` : `<div class="thumb-ph big">${icon(cat?.icon)}</div>`}</div>
+        <div class="detail-media">${g.thumbnail_url ? `<img class="bg" src="${esc(g.thumbnail_url)}" alt="" aria-hidden="true"><img src="${esc(g.thumbnail_url)}" alt="ภาพปกเกม ${esc(g.title)}">` : `<div class="thumb-ph big">${icon(cat?.icon)}</div>`}</div>
         <div class="detail-info card">
         <div class="tags">${cats.map((c) => `<span class="tag">${esc(c.name_th)}</span>`).join('') || '<span class="tag">ไม่มีหมวดหมู่</span>'}${tierBadge(g.min_tier)}${modeChips(g.modes)}${g.is_published ? '' : '<span class="tag warn">ยังไม่เผยแพร่</span>'}</div>
           <p class="lead">${esc(g.short_description)}</p>
