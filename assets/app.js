@@ -1308,9 +1308,7 @@ async function gameModal(g) {
           if (v === 'inherit') await q(sb.from('game_tier_overrides').delete().eq('game_id', id).eq('tier_code', t));
           else await q(sb.from('game_tier_overrides').upsert({ game_id: id, tier_code: t, allowed: v === 'allow' }));
         }
-                const linkChanged = !g || (src?.play_url || '') !== f.play_url.trim();
         closeModal(); toast('บันทึกเกมเรียบร้อย'); rerenderGM('games');
-        if (linkChanged) autoShot(id);
       }, $('#gfMsg', d));
     });
   });
