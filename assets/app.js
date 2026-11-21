@@ -702,13 +702,36 @@ async function renderPlay(id) {
         <iframe id="frame" src="${esc(url)}" title="${esc(title)}" allow="fullscreen; gamepad; autoplay"
           allowfullscreen referrerpolicy="no-referrer"
           sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-popups"></iframe>
+          <button class="fs-exit" id="fsExit" type="button" aria-label="ย่อกลับจอเล็ก">✕</button>
       </section>`;
-        const sec = $('.player'), fsBtn = $('#fsBtn');
+    const sec = $('.player'), fsBtn = $('#fsBtn');
+    const setFull = (on) => {
+    const sec = $('.player'), fsBtn = $('#fsBtn'), fsExit = $('#fsExit');
+    let dimTimer = null;
+    const dimLater = () => {
+      fsExit.classList.remove('dim');
+      clearTimeout(dimTimer);
+      dimTimer = setTimeout(() => fsExit.classList.add('dim'), 3000);
+    };
+    const fit = () => {
+      if (!sec.isConnected) {
+        window.visualViewport?.removeEventListener('resize', fit);
+        window.removeEventListener('orientationchange', fit);
+        return;
+      }
+      if (!sec.classList.contains('is-full')) return;
+      const vv = window.visualViewport;
+      sec.style.width = `${vv ? vv.width : window.innerWidth}px`;
+      sec.style.height = `${vv ? vv.height : window.innerHeight}px`;
+      sec.style.top = `${vv ? vv.offsetTop : 0}px`;
+      sec.style.left = `${vv ? vv.offsetLeft : 0}px`;
+    };
     const setFull = (on) => {
       sec.classList.toggle('is-full', on);
       fsBtn.textContent = on ? 'ย่อหน้าจอ' : 'ขยายเต็มจอ';
+      if (on) { fit(); dimLater(); } else { sec.removeAttribute('style'); clearTimeout(dimTimer); }
     };
-    fsBtn.onclick = async () => {
+    const toggleFull = async () => {
       const on = !sec.classList.contains('is-full');
       setFull(on);
       try {
@@ -716,9 +739,14 @@ async function renderPlay(id) {
         else if (document.fullscreenElement) await document.exitFullscreen();
       } catch { /* iPhone: ใช้เต็มหน้าจอแบบ CSS แทน */ }
     };
-    sec.onfullscreenchange = () => { if (!document.fullscreenElement) setFull(false); }
-  } catch (e) { main().innerHTML = errorBox(e.message, `#/game/${encodeURIComponent(id)}`); }
-}
+    fsBtn.onclick = toggleFull;
+    fsExit.onclick = () => {
+      if (fsExit.classList.contains('dim')) { dimLater(); return; }
+      toggleFull();
+    };
+    sec.onfullscreenchange = () => { if (!document.fullscreenElement) setFull(false); };
+    window.visualViewport?.addEventListener('resize', fit);
+    window.addEventListener('orientationchange', fit);
 
 // ---------------------------------------------------------------- membership & account
 function renderMembership() {
