@@ -134,7 +134,7 @@ async function api(path, body, auth = false) {
 let sb;
 const state = {
   session: null, profile: null, membership: null, tier: null, tiers: [],
-  library: [], categories: [], f: { q: '', cat: 'all', access: 'all', sort: 'new' }, gmUserFilter: 'pending',
+  library: [], categories: [], f: { q: '', cat: 'all', access: 'all', sort: 'new', mode: 'all' }, gmUserFilter: 'pending',
 };
 const isGM = () => state.profile?.role === 'gm';
 
@@ -389,12 +389,14 @@ const MODES = [
 ];
 const modeChips = (list) => MODES.filter((m) => (list || []).includes(m.key))
   .map((m) => `<span class="tag">${m.label}</span>`).join('');
+const isNew = (g) => g.created_at && Date.now() - new Date(g.created_at).getTime() < 7 * 864e5;
 const gameCard = (g) => `
   <a class="gcard ${g.can_play ? '' : 'locked'}" href="#/game/${g.id}"
      aria-label="${esc(g.title)} — ${g.can_play ? 'พร้อมเล่น' : `ล็อก ระดับแนะนำ ${TIER_LABEL[g.min_tier]}`}">
     <div class="thumb">
       ${g.thumbnail_url ? `<img class="bg" src="${esc(g.thumbnail_url)}" alt="" aria-hidden="true" loading="lazy"><img src="${esc(g.thumbnail_url)}" alt="" loading="lazy">` : `<div class="thumb-ph">${icon(g.category_icon)}</div>`}
       ${tierBadge(g.min_tier)}
+      ${isNew(g) ? '<span class="newtag">ใหม่</span>' : ''}
       ${g.can_play ? '' : `<span class="lock">${icon('lock')}</span>`}
       ${g.is_published === false ? '<span class="tag warn draft">ฉบับร่าง</span>' : ''}
     </div>
@@ -418,11 +420,12 @@ const carousel = (title, list, id) => `
   </section>`;
 
 function filteredGames() {
-  const { q: query, cat, access, sort } = state.f;
+  const { q: query, cat, access, sort, mode } = state.f;
   const needle = query.trim().toLowerCase();
   const list = state.library.filter((g) =>
     (cat === 'all' || (g.category_ids || []).includes(cat))
     && (access === 'all' || (access === 'open' ? g.can_play : !g.can_play))
+    && (mode === 'all' || (g.modes || []).includes(mode))
     && (!needle || [g.title, g.short_description, ...(g.category_names || [])].some((s) => (s || '').toLowerCase().includes(needle))));
   if (sort === 'az') list.sort((a, b) => a.title.localeCompare(b.title, 'th'));
   else if (sort === 'tier') list.sort((a, b) => tierRank(a.min_tier) - tierRank(b.min_tier));
@@ -491,7 +494,8 @@ async function renderLibrary() {
     ${featured.length ? carousel('เกมแนะนำ', featured, 'feat') : ''}
     ${carousel('เพิ่มล่าสุด', recent, 'recent')}
     <section class="block" id="allGames" aria-labelledby="allH">
-      <div class="block-head"><h2 id="allH">คลังเกมทั้งหมด</h2><span class="muted" id="countLbl"></span></div>
+      <div class="block-head"><h2 id="allH">คลังเกมทั้งหมด</h2>
+        <span class="head-tools"><span class="muted" id="countLbl"></span><button class="btn ghost sm" id="rndBtn" type="button">🎲 สุ่มเกม</button></span></div>
       <div class="chips" id="cats" role="group" aria-label="กรองตามหมวดหมู่">
         <button class="chip" data-cat="all" aria-pressed="${state.f.cat === 'all'}">${icon('all')} ทั้งหมด <small>${state.library.length}</small></button>
         ${state.categories.map((c) => `<button class="chip" data-cat="${c.id}" aria-pressed="${state.f.cat === c.id}">${icon(c.icon)} ${esc(c.name_th)} <small>${count(c.id)}</small></button>`).join('')}
@@ -500,6 +504,10 @@ async function renderLibrary() {
         <label>สิทธิ์การเข้าถึง
           <select id="fAccess">
             <option value="all">ทั้งหมด</option><option value="open">เล่นได้</option><option value="locked">ล็อกอยู่</option>
+          </select></label>
+            <label>โหมดเกม
+          <select id="fMode">
+            <option value="all">ทั้งหมด</option><option value="single">Single player</option><option value="duo">Duo player</option><option value="multi">Multiple player</option>
           </select></label>
         <label>เรียงตาม
           <select id="fSort">
@@ -512,6 +520,7 @@ async function renderLibrary() {
   if (!state.library.length) return;
   $('#fAccess').value = state.f.access;
   $('#fSort').value = state.f.sort;
+  $('#fMode').value = state.f.mode;
   $('#q').addEventListener('input', (e) => { state.f.q = e.target.value; drawGrid(); });
   $('#heroSearch').addEventListener('submit', (e) => { e.preventDefault(); $('#allGames').scrollIntoView({ behavior: 'smooth' }); });
   $('#cats').addEventListener('click', (e) => {
@@ -522,6 +531,12 @@ async function renderLibrary() {
   });
   $('#fAccess').onchange = (e) => { state.f.access = e.target.value; drawGrid(); };
   $('#fSort').onchange = (e) => { state.f.sort = e.target.value; drawGrid(); };
+  $('#fMode').onchange = (e) => { state.f.mode = e.target.value; drawGrid(); };
+  $('#rndBtn').onclick = () => {
+    const open = filteredGames().filter((g) => g.can_play);
+    if (!open.length) { toast('ไม่มีเกมที่เล่นได้ตามตัวกรองนี้', 'err'); return; }
+    location.hash = `#/game/${open[Math.floor(Math.random() * open.length)].id}`;
+  };
   $$('[data-car]').forEach((b) => {
     b.onclick = () => { const c = $(`#car-${b.dataset.car}`); c.scrollBy({ left: c.clientWidth * 0.8 * Number(b.dataset.dir), behavior: 'smooth' }); };
   });
