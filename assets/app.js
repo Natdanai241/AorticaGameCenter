@@ -163,7 +163,7 @@ async function boot() {
 }
 
 function resetUser() {
-   Object.assign(state, { profile: null, membership: null, tier: null, library: [], categories: [], favs: new Set() });
+    Object.assign(state, { profile: null, membership: null, tier: null, library: [], categories: [], favs: new Set(), badges: null, badgeAt: 0 });
 }
 
 async function loadMe() {
@@ -216,7 +216,24 @@ async function route() {
     default: return renderLibrary();
   }
 }
+function applyBadges() {
+  const b = state.badges || {};
+  $$('#nav a, #tabbar a').forEach((a) => {
+    const k = (a.getAttribute('href') || '').replace('#/', '');
+    a.classList.toggle('has-dot', (k === 'library' && b.me > 0) || (k === 'gm' && b.gm > 0));
+  });
+}
 
+async function loadBadges() {
+  if (Date.now() - (state.badgeAt || 0) < 30000) return;
+  state.badgeAt = Date.now();
+  try {
+    const me = Number(await q(sb.rpc('my_unread_replies'))) || 0;
+    const gm = isGM() ? Number(await q(sb.rpc('gm_unread_count'))) || 0 : 0;
+    state.badges = { me, gm };
+    applyBadges();
+  } catch { /* ignore */ }
+}
 function chrome(on, page = '') {
   $('#topbar').hidden = !on;
   $('#tabbar').hidden = !on;
@@ -236,6 +253,8 @@ function chrome(on, page = '') {
       <span class="who"><b>${esc(name)}</b>${tierBadge(state.tier)}</span></a>
     <button class="icon-btn" id="logoutBtn" aria-label="ออกจากระบบ" title="ออกจากระบบ">${icon('logout')}</button>`;
   $('#logoutBtn').onclick = logout;
+  applyBadges();
+  loadBadges();
 }
 
 // ---------------------------------------------------------------- auth screens
@@ -479,13 +498,15 @@ function membershipLine() {
 
 async function renderLibrary() {
   main().innerHTML = loading();
-  let lib, cats, favRows, playRows;
+  let lib, cats, favRows, playRows, ann, unreadThreads;
   try {
-     [lib, cats, favRows, playRows] = await Promise.all([
+    [lib, cats, favRows, playRows, ann, unreadThreads] = await Promise.all([
       q(sb.rpc('get_library')),
       q(sb.from('categories').select('*').eq('is_active', true).order('sort_order')),
       q(sb.from('game_favorites').select('game_id')).catch(() => []),
       q(sb.from('game_recent').select('game_id').order('played_at', { ascending: false }).limit(12)).catch(() => []),
+      q(sb.rpc('get_announcement')).catch(() => null),
+      q(sb.rpc('my_unread_threads')).catch(() => []),
     ]);
   } catch (e) { main().innerHTML = errorBox(e.message); return; }
   state.library = lib || [];
@@ -497,9 +518,12 @@ async function renderLibrary() {
   const recent = state.library.slice(0, 10);
   const favList = state.library.filter((g) => state.favs.has(g.id));
   const playedList = (playRows || []).map((r) => state.library.find((g) => g.id === r.game_id)).filter(Boolean);
+  const annHidden = (() => { try { return localStorage.getItem('ann_dismissed') === ann; } catch { return false; } })();
   const count = (id) => state.library.filter((g) => (g.category_ids || []).includes(id)).length;
 
   main().innerHTML = `
+    ${ann && !annHidden ? `<div class="banner" id="annBox"><span>${esc(ann)}</span><button class="icon-btn" id="annX" type="button" aria-label="ปิดประกาศ">×</button></div>` : ''}
+    ${(unreadThreads || []).length ? `<div class="banner reply"><span>มีข้อความตอบกลับจากผู้พัฒนา:</span> ${unreadThreads.map((t) => `<a href="#/game/${t.game_id}">${esc(t.game_title)}</a>`).join(' · ')}</div>` : ''}
     <section class="hero">
       <div>
         <p class="eyebrow">AORTICA GAME CENTER</p>
@@ -548,6 +572,10 @@ async function renderLibrary() {
       <div class="grid" id="grid" aria-live="polite"></div>
     </section>`}`;
 
+  $('#annX')?.addEventListener('click', () => {
+    try { localStorage.setItem('ann_dismissed', ann); } catch { /* ignore */ }
+    $('#annBox')?.remove();
+  });
   if (!state.library.length) return;
   bindFav();
   $('#fAccess').value = state.f.access;
@@ -1101,6 +1129,8 @@ const GM_VIEWS = {
             <option value="normal" ${s.expired_fallback_tier !== 'none' ? 'selected' : ''}>ลดเป็น Normal (เล่นเกมระดับ Normal ได้)</option>
             <option value="none" ${s.expired_fallback_tier === 'none' ? 'selected' : ''}>ไม่มีสิทธิ์เล่นเกมจนกว่าจะต่ออายุ</option>
           </select></label>
+            <label class="check"><input type="checkbox" name="ann_on" ${s.announcement?.enabled ? 'checked' : ''}> แสดงประกาศบนหน้าคลังเกม</label>
+        <label>ข้อความประกาศ (ไม่เกิน 500 ตัวอักษร)<textarea name="ann_text" rows="3" maxlength="500">${esc(s.announcement?.text || '')}</textarea></label>
         <p class="form-msg" id="setMsg" role="alert"></p>
         <button class="btn primary" type="submit">บันทึกการตั้งค่า</button>
       </form>`;
@@ -1111,6 +1141,7 @@ const GM_VIEWS = {
         await q(sb.from('platform_settings').upsert([
           { key: 'registration_open', value: !!f.registration_open },
           { key: 'expired_fallback_tier', value: f.expired_fallback_tier },
+          { key: 'announcement', value: { enabled: !!f.ann_on, text: (f.ann_text || '').trim() } },
         ]));
         toast('บันทึกการตั้งค่าแล้ว');
       }, $('#setMsg'));
