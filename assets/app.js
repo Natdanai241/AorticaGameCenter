@@ -134,7 +134,7 @@ async function api(path, body, auth = false) {
 let sb;
 const state = {
   session: null, profile: null, membership: null, tier: null, tiers: [],
-  library: [], categories: [], f: { q: '', cat: 'all', access: 'all', sort: 'new', mode: 'all' }, gmUserFilter: 'pending',
+  library: [], categories: [], f: { q: '', cat: 'all', access: 'all', sort: 'new', mode: 'all' }, gmUserFilter: 'pending', favs: new Set(),
 };
 const isGM = () => state.profile?.role === 'gm';
 
@@ -163,7 +163,7 @@ async function boot() {
 }
 
 function resetUser() {
-  Object.assign(state, { profile: null, membership: null, tier: null, library: [], categories: [] });
+   Object.assign(state, { profile: null, membership: null, tier: null, library: [], categories: [], favs: new Set() });
 }
 
 async function loadMe() {
@@ -389,6 +389,29 @@ const MODES = [
 ];
 const modeChips = (list) => MODES.filter((m) => (list || []).includes(m.key))
   .map((m) => `<span class="tag">${m.label}</span>`).join('');
+async function toggleFav(id) {
+  const on = !state.favs.has(id);
+  try {
+    if (on) await q(sb.from('game_favorites').insert({ user_id: state.session.user.id, game_id: id }));
+    else await q(sb.from('game_favorites').delete().eq('game_id', id));
+    if (on) state.favs.add(id); else state.favs.delete(id);
+    $$(`[data-fav="${id}"]`).forEach((el) => el.classList.toggle('on', on));
+    toast(on ? 'เพิ่มในเกมโปรดแล้ว' : 'นำออกจากเกมโปรดแล้ว');
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+function bindFav() {
+  const el = main();
+  el.onclick = (e) => {
+    const b = e.target.closest('[data-fav]'); if (!b) return;
+    e.preventDefault(); toggleFav(b.dataset.fav);
+  };
+  el.onkeydown = (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const b = e.target.closest('[data-fav]'); if (!b) return;
+    e.preventDefault(); toggleFav(b.dataset.fav);
+  };
+}
 const isNew = (g) => g.created_at && Date.now() - new Date(g.created_at).getTime() < 7 * 864e5;
 const gameCard = (g) => `
   <a class="gcard ${g.can_play ? '' : 'locked'}" href="#/game/${g.id}"
@@ -397,6 +420,7 @@ const gameCard = (g) => `
       ${g.thumbnail_url ? `<img class="bg" src="${esc(g.thumbnail_url)}" alt="" aria-hidden="true" loading="lazy"><img src="${esc(g.thumbnail_url)}" alt="" loading="lazy">` : `<div class="thumb-ph">${icon(g.category_icon)}</div>`}
       ${tierBadge(g.min_tier)}
       ${isNew(g) ? '<span class="newtag">ใหม่</span>' : ''}
+        <span class="fav ${state.favs.has(g.id) ? 'on' : ''}" role="button" tabindex="0" data-fav="${g.id}" aria-label="เกมโปรด">${icon('heart')}</span>
       ${g.can_play ? '' : `<span class="lock">${icon('lock')}</span>`}
       ${g.is_published === false ? '<span class="tag warn draft">ฉบับร่าง</span>' : ''}
     </div>
@@ -455,19 +479,24 @@ function membershipLine() {
 
 async function renderLibrary() {
   main().innerHTML = loading();
-  let lib, cats;
+  let lib, cats, favRows, playRows;
   try {
-    [lib, cats] = await Promise.all([
+     [lib, cats, favRows, playRows] = await Promise.all([
       q(sb.rpc('get_library')),
       q(sb.from('categories').select('*').eq('is_active', true).order('sort_order')),
+      q(sb.from('game_favorites').select('game_id')).catch(() => []),
+      q(sb.from('game_recent').select('game_id').order('played_at', { ascending: false }).limit(12)).catch(() => []),
     ]);
   } catch (e) { main().innerHTML = errorBox(e.message); return; }
   state.library = lib || [];
   state.categories = cats || [];
+  state.favs = new Set((favRows || []).map((r) => r.game_id));
   const p = state.profile;
   const playable = state.library.filter((g) => g.can_play).length;
   const featured = state.library.filter((g) => g.is_featured);
   const recent = state.library.slice(0, 10);
+  const favList = state.library.filter((g) => state.favs.has(g.id));
+  const playedList = (playRows || []).map((r) => state.library.find((g) => g.id === r.game_id)).filter(Boolean);
   const count = (id) => state.library.filter((g) => (g.category_ids || []).includes(id)).length;
 
   main().innerHTML = `
@@ -492,6 +521,8 @@ async function renderLibrary() {
     </section>
     ${state.library.length === 0 ? `<section class="card empty">${icon('all')}<p>ยังไม่มีเกมในคลัง</p>${isGM() ? '<a class="btn primary sm" href="#/gm/games">เพิ่มเกมแรก</a>' : ''}</section>` : `
     ${featured.length ? carousel('เกมแนะนำ', featured, 'feat') : ''}
+    ${playedList.length ? carousel('เล่นล่าสุด', playedList, 'played') : ''}
+    ${favList.length ? carousel('เกมโปรดของคุณ', favList, 'favs') : ''}
     ${carousel('เพิ่มล่าสุด', recent, 'recent')}
     <section class="block" id="allGames" aria-labelledby="allH">
       <div class="block-head"><h2 id="allH">คลังเกมทั้งหมด</h2>
@@ -518,6 +549,7 @@ async function renderLibrary() {
     </section>`}`;
 
   if (!state.library.length) return;
+  bindFav();
   $('#fAccess').value = state.f.access;
   $('#fSort').value = state.f.sort;
   $('#fMode').value = state.f.mode;
@@ -547,12 +579,14 @@ async function renderLibrary() {
 async function renderGame(id) {
   main().innerHTML = loading();
   try {
-    const [g, can, allCats] = await Promise.all([
+    const [g, can, allCats, favRow] = await Promise.all([
       q(sb.from('games').select('*').eq('id', id).maybeSingle()),
       q(sb.rpc('can_access_game', { p_game: id })),
       q(sb.from('categories').select('id, name_th, icon')),
+      q(sb.from('game_favorites').select('game_id').eq('game_id', id)).catch(() => []),
     ]);
     if (!g) throw new Error('ไม่พบเกมนี้ หรือคุณไม่มีสิทธิ์ดูข้อมูล');
+    if ((favRow || []).length) state.favs.add(id); else state.favs.delete(id);
     const cats = (g.category_ids?.length ? g.category_ids : (g.category_id ? [g.category_id] : []))
       .map((cid) => (allCats || []).find((c) => c.id === cid)).filter(Boolean);
     const cat = cats[0];
@@ -569,6 +603,7 @@ async function renderGame(id) {
               <b>เกมนี้ยังไม่เปิดสำหรับระดับสมาชิกของคุณ</b>
               <p>ระดับที่แนะนำ: ${TIER_LABEL[g.min_tier]} ขึ้นไป — ติดต่อ GM เพื่ออัปเกรดหรือต่ออายุสมาชิก</p>
               <a class="btn ghost sm" href="#/membership">ดูระดับสมาชิก</a></div></div>`}
+              <button class="btn ghost sm favbtn ${state.favs.has(g.id) ? 'on' : ''}" type="button" data-fav="${g.id}">${icon('heart')} เกมโปรด</button>
               ${g.how_to_play ? '<button class="btn ghost sm" type="button" id="howBtn">วิธีเล่น</button>' : ''}
           <dl class="meta">
             <div><dt>ระดับขั้นต่ำ</dt><dd>${TIER_LABEL[g.min_tier]}</dd></div>
@@ -582,6 +617,7 @@ async function renderGame(id) {
       ${shots.length ? `<section class="block"><h2>ภาพหน้าจอ</h2><div class="shots">${shots.map((u) => `<img src="${esc(u)}" alt="ภาพหน้าจอ ${esc(g.title)}" loading="lazy">`).join('')}</div></section>` : ''}
       <section class="block card" id="msgBox"></section>`;
       $('#howBtn')?.addEventListener('click', () => $('#howTo').scrollIntoView({ behavior: 'smooth' }));
+      bindFav();
     await mountMessages(g.id);
   } catch (e) { main().innerHTML = errorBox(e.message, '#/library'); }
 }
@@ -626,6 +662,7 @@ async function renderPlay(id) {
       q(sb.from('games').select('title').eq('id', id).maybeSingle()),
     ]);
     if (!/^https:\/\//.test(url || '')) throw new Error(ERR_TH.NO_SOURCE);
+    sb.rpc('record_play', { p_game: id }).then(() => {}, () => {});
     const title = g?.title || 'เกม';
     main().innerHTML = `
       <section class="player">
