@@ -569,6 +569,7 @@ async function renderGame(id) {
               <b>เกมนี้ยังไม่เปิดสำหรับระดับสมาชิกของคุณ</b>
               <p>ระดับที่แนะนำ: ${TIER_LABEL[g.min_tier]} ขึ้นไป — ติดต่อ GM เพื่ออัปเกรดหรือต่ออายุสมาชิก</p>
               <a class="btn ghost sm" href="#/membership">ดูระดับสมาชิก</a></div></div>`}
+              ${g.how_to_play ? '<button class="btn ghost sm" type="button" id="howBtn">วิธีเล่น</button>' : ''}
           <dl class="meta">
             <div><dt>ระดับขั้นต่ำ</dt><dd>${TIER_LABEL[g.min_tier]}</dd></div>
             <div><dt>สิทธิ์ของคุณ</dt><dd>${can ? '<span class="ok">เล่นได้</span>' : '<span class="no">ล็อก</span>'}</dd></div>
@@ -577,8 +578,10 @@ async function renderGame(id) {
         </div>
       </article>
       ${g.description ? `<section class="block card prose"><h2>รายละเอียดเกม</h2><p>${esc(g.description).replace(/\n/g, '<br>')}</p></section>` : ''}
+      ${g.how_to_play ? `<section class="block card prose" id="howTo"><h2>วิธีเล่น</h2><p>${esc(g.how_to_play).replace(/\n/g, '<br>')}</p></section>` : ''}
       ${shots.length ? `<section class="block"><h2>ภาพหน้าจอ</h2><div class="shots">${shots.map((u) => `<img src="${esc(u)}" alt="ภาพหน้าจอ ${esc(g.title)}" loading="lazy">`).join('')}</div></section>` : ''}
       <section class="block card" id="msgBox"></section>`;
+      $('#howBtn')?.addEventListener('click', () => $('#howTo').scrollIntoView({ behavior: 'smooth' }));
     await mountMessages(g.id);
   } catch (e) { main().innerHTML = errorBox(e.message, '#/library'); }
 }
@@ -1262,6 +1265,7 @@ async function gameModal(g) {
       <label>ลิงก์ภาพปก (HTTPS)<input name="thumbnail_url" type="url" value="${esc(g?.thumbnail_url)}"></label>
       <label>คำอธิบายสั้น<input name="short_description" maxlength="160" value="${esc(g?.short_description)}"></label>
       <label>รายละเอียด<textarea name="description" rows="4" maxlength="4000">${esc(g?.description)}</textarea></label>
+      <label>วิธีเล่น / กติกา (แสดงในหน้าเกม)<textarea name="how_to_play" rows="5" maxlength="4000">${esc(g?.how_to_play)}</textarea></label>
       <label>ภาพหน้าจอ (ลิงก์ HTTPS บรรทัดละ 1 รูป)<textarea name="screenshots" rows="3">${esc((g?.screenshots || []).join('\n'))}</textarea></label>
       <label>อัปโหลดภาพหน้าจอจากเครื่อง (เลือกได้หลายรูป)<input type="file" id="shotFiles" accept="image/*" multiple></label>
       <p class="muted small" id="shotUp"></p>
@@ -1311,6 +1315,7 @@ async function gameModal(g) {
           category_ids: catIds, category_id: catIds[0] || null,
           thumbnail_url: f.thumbnail_url.trim() || null, short_description: f.short_description.trim(),
           description: f.description.trim(), screenshots: shots,
+          how_to_play: f.how_to_play.trim(),
           is_published: !!f.is_published, is_featured: !!f.is_featured,
           modes: $$('input[name="modes"]:checked', ev.target).map((x) => x.value),
         };
