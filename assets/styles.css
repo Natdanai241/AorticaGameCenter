@@ -307,3 +307,5 @@ legend{padding:0 6px;color:var(--muted);font-size:13px}
 .thumb img:not(.bg),.detail-media img:not(.bg){position:relative}
 .thumb .newtag{position:absolute;bottom:8px;left:8px;z-index:2;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:linear-gradient(90deg,#a855f7,#ec4899);color:#fff}
 .head-tools{display:flex;align-items:center;gap:12px}
+.thumb .fav{position:absolute;right:8px;bottom:8px;z-index:3;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:rgba(8,6,16,.7);color:rgba(255,255,255,.6);cursor:pointer}
+.thumb .fav.on,.favbtn.on{color:#ec4899}
