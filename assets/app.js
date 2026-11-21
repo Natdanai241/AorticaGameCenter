@@ -704,8 +704,6 @@ async function renderPlay(id) {
           sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-popups"></iframe>
           <button class="fs-exit" id="fsExit" type="button" aria-label="ย่อกลับจอเล็ก">✕</button>
       </section>`;
-    const sec = $('.player'), fsBtn = $('#fsBtn');
-    const setFull = (on) => {
     const sec = $('.player'), fsBtn = $('#fsBtn'), fsExit = $('#fsExit');
     let dimTimer = null;
     const dimLater = () => {
@@ -747,6 +745,8 @@ async function renderPlay(id) {
     sec.onfullscreenchange = () => { if (!document.fullscreenElement) setFull(false); };
     window.visualViewport?.addEventListener('resize', fit);
     window.addEventListener('orientationchange', fit);
+    } catch (e) { main().innerHTML = errorBox(e.message, `#/game/${encodeURIComponent(id)}`); }
+ }
 
 // ---------------------------------------------------------------- membership & account
 function renderMembership() {
@@ -802,6 +802,7 @@ async function renderAccount() {
             <div><dt>ต่ออายุล่าสุด</dt><dd>${fmtDate(m.last_renewed_at)}</dd></div>
           </dl>
               ${m.is_trial && !expired ? `<p class="note">${icon('info')} คุณกำลังใช้ VIP Trial เหลือ ${trialLeft(m.expires_at)} เมื่อครบเวลาจะเปลี่ยนเป็นระดับ Normal (ฟรี)</p>` : m.is_trial ? `<p class="note">${icon('info')} ช่วง VIP Trial สิ้นสุดแล้ว ตอนนี้คุณใช้ระดับ Normal (ฟรี) เกมแนะนำยังเล่นได้ทุกเกม</p>` : expired ? `<p class="note">${icon('info')} สมาชิกภาพหมดอายุแล้ว สิทธิ์ของคุณถูกปรับตามนโยบายของ GM กรุณาติดต่อ GM เพื่อต่ออายุ</p>` : ''}
+          </article>
         <article class="card">
           <h2>ตั้งค่าบัญชี</h2>
           <form id="nameForm" class="form">
@@ -1302,6 +1303,7 @@ async function uploadShots(files, area, status, slug) {
   if (!list.length) { status.textContent = 'มีภาพครบ 12 รูปแล้ว'; return; }
   const folder = (slug || 'game').replace(/[^a-z0-9-]/g, '') || 'game';
   const urls = [];
+    let lastErr = '';
   for (let i = 0; i < list.length; i += 1) {
     status.textContent = `กำลังอัปโหลดรูปที่ ${i + 1}/${list.length}...`;
     try {
