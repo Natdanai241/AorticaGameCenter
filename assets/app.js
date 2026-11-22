@@ -276,7 +276,7 @@ async function renderAuth(tab) {
       <label>รหัสผ่าน<input name="password" type="password" autocomplete="new-password" required minlength="8"></label>
       <label>ยืนยันรหัสผ่าน<input name="confirm" type="password" autocomplete="new-password" required></label>
       <p class="hint">รหัสผ่านอย่างน้อย 8 ตัวอักษร ประกอบด้วยตัวอักษรและตัวเลข</p>
-      <label class="check"><input type="checkbox" name="agree" required> ฉันยอมรับเงื่อนไขการใช้งานของ Aortica Game Center</label>
+      <label class="check"><input type="checkbox" name="agree" required> <span>ฉันยอมรับ<a href="/terms.html" target="_blank" rel="noopener">เงื่อนไขการใช้งาน</a>และ<a href="/privacy.html" target="_blank" rel="noopener">นโยบายความเป็นส่วนตัว</a></span></label>
       <p class="form-msg" id="authMsg" role="alert"></p>
       <button class="btn primary block" type="submit">สมัครสมาชิก</button>
       <p class="hint">สมาชิกใหม่ได้ใช้ VIP Trial ทันทีหลังสมัคร ไม่ต้องรอ GM อนุมัติ เมื่อครบเวลาจะเป็นระดับ Normal (ฟรี)</p>
