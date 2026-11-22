@@ -935,14 +935,17 @@ const GM_VIEWS = {
   },
 
   async games(el) {
-    const [games, allCats, jobRows] = await Promise.all([
+    const [games, allCats, jobRows, linkRows] = await Promise.all([
       q(sb.from('games').select('*').order('created_at', { ascending: false })),
       q(sb.from('categories').select('id, name_th')),
           q(sb.from('media_jobs').select('game_id, status, error, created_at').eq('kind', 'screenshot')
         .order('created_at', { ascending: false }).limit(300)).catch(() => []),
+          q(sb.from('link_checks').select('game_id, status, http_code, error, checked_at, fail_count')).catch(() => []),
     ]);
     const jobs = {};
     (jobRows || []).forEach((j) => { if (!jobs[j.game_id]) jobs[j.game_id] = j; });
+    const links = {};
+    (linkRows || []).forEach((c) => { links[c.game_id] = c; });
     const shotCell = (g) => {
       const n = Array.isArray(g.screenshots) ? g.screenshots.length : 0;
       const j = jobs[g.id];
@@ -952,6 +955,16 @@ const GM_VIEWS = {
       else if (j?.status === 'error') st = ` <span class="st st-suspended" title="${esc(j.error || '')}">แคปไม่สำเร็จ</span>`;
       return `${n} รูป${st}`;
     };
+        const linkCell = (g) => {
+      const c = links[g.id];
+      if (!c) return '<span class="muted small">ยังไม่ตรวจ</span>';
+      const when = fmtDateTime(c.checked_at);
+      if (c.status === 'ok') return `<span class="st st-active" title="ตรวจล่าสุด ${when}">ปกติ</span>`;
+      const why = esc(c.error || `HTTP ${c.http_code || '-'}`);
+      return c.fail_count >= 2
+        ? `<span class="st st-rejected" title="${why} · ตรวจล่าสุด ${when}">ลิงก์เสีย</span>`
+        : `<span class="st st-pending" title="${why} · ตรวจล่าสุด ${when}">พบปัญหา</span>`;
+    };
     const catNames = (g) => (g.category_ids?.length ? g.category_ids : (g.category_id ? [g.category_id] : []))
       .map((cid) => (allCats || []).find((c) => c.id === cid)?.name_th).filter(Boolean).join(', ');
     el.innerHTML = `
@@ -959,7 +972,7 @@ const GM_VIEWS = {
         <input type="search" id="gq" placeholder="ค้นหาชื่อเกม, slug หรือหมวดหมู่" aria-label="ค้นหาเกม">
         <button class="btn primary sm" id="addGame">${icon('plus')} เพิ่มเกม</button></div>
       <div class="table-wrap"><table class="tbl">
-          <thead><tr><th>ชื่อเกม</th><th>หมวดหมู่</th><th>ระดับขั้นต่ำ</th><th>สถานะ</th><th>แนะนำ</th><th>อัปเดต</th><th>ภาพหน้าจอ</th><th>การจัดการ</th></tr></thead>
+          <thead><tr><th>ชื่อเกม</th><th>หมวดหมู่</th><th>ระดับขั้นต่ำ</th><th>สถานะ</th><th>แนะนำ</th><th>อัปเดต</th><th>ภาพหน้าจอ</th><th>ลิงก์เกม</th><th>การจัดการ</th></tr></thead>
           <tbody>${games.map((g) => `<tr data-id="${g.id}" data-s="${esc(`${g.title} ${g.slug} ${catNames(g)}`.toLowerCase())}">
           <td><b>${esc(g.title)}</b><br><span class="muted small">${esc(g.slug)}</span></td>
           <td>${esc(catNames(g) || '—')}</td>
@@ -968,8 +981,9 @@ const GM_VIEWS = {
           <td>${g.is_featured ? '★' : '—'}</td>
           <td>${fmtDate(g.updated_at)}</td>
           <td>${shotCell(g)}</td>
+          <td>${linkCell(g)}</td>
           <td><div class="actions">${actBtn('edit', 'แก้ไข')}${actBtn('view', 'ดูหน้าเกม')}${actBtn('shot', 'แคปภาพใหม่')}${actBtn('del', 'ลบ', 'danger')}</div></td>
-          </tr>`).join('') || '<tr><td colspan="8" class="muted">ยังไม่มีเกม กด “เพิ่มเกม” เพื่อเริ่มต้น</td></tr>'}</tbody>
+            </tr>`).join('') || '<tr><td colspan="9" class="muted">ยังไม่มีเกม กด “เพิ่มเกม” เพื่อเริ่มต้น</td></tr>'}</tbody>
       </table></div>`;
     $('#addGame').onclick = () => gameModal(null);
     $('#gq', el).addEventListener('input', (e) => {
