@@ -190,6 +190,7 @@ async function logout() {
 let routeSeq = 0;
 async function route() {
   const seq = ++routeSeq;
+  document.body.classList.remove('fs-active');
   const [page = '', arg = ''] = location.hash.replace(/^#\/?/, '').split('/');
   closeModal();
 
@@ -726,6 +727,7 @@ async function renderPlay(id) {
     };
     const setFull = (on) => {
       sec.classList.toggle('is-full', on);
+      document.body.classList.toggle('fs-active', on);
       fsBtn.textContent = on ? 'ย่อหน้าจอ' : 'ขยายเต็มจอ';
       if (on) { fit(); dimLater(); } else { sec.removeAttribute('style'); clearTimeout(dimTimer); }
     };
