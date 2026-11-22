@@ -318,3 +318,6 @@ legend{padding:0 6px;color:var(--muted);font-size:13px}
 .banner span{flex:1;min-width:0;overflow-wrap:anywhere}
 .banner.reply{background:rgba(34,211,238,.1);border-color:rgba(34,211,238,.35)}
 .banner a{color:var(--cyan);font-weight:600}
+body.fs-active .topbar,body.fs-active .tabbar{display:none}
+body.fs-active #main{z-index:auto}
+body.fs-active{overflow:hidden}
