@@ -1,0 +1,16 @@
+{
+  "name": "Aortica Game Center",
+  "short_name": "Aortica",
+  "description": "รวมทุกความสนุก ไว้ในที่เดียว",
+  "lang": "th",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#06050b",
+  "theme_color": "#06050b",
+  "icons": [
+    { "src": "/api/icon?s=192", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/api/icon?s=512", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/api/icon?s=512&m=1", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
