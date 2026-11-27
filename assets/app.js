@@ -1380,6 +1380,8 @@ async function gameModal(g) {
       <label>คำอธิบายสั้น<input name="short_description" maxlength="160" value="${esc(g?.short_description)}"></label>
       <label>รายละเอียด<textarea name="description" rows="4" maxlength="4000">${esc(g?.description)}</textarea></label>
       <label>วิธีเล่น / กติกา (แสดงในหน้าเกม)<textarea name="how_to_play" rows="5" maxlength="4000">${esc(g?.how_to_play)}</textarea></label>
+      <div class="row"><button type="button" class="btn ghost sm" id="rulesBtn">อัปเดตวิธีเล่นจากหน้าเกม</button></div>
+      <p class="muted small" id="rulesMsg"></p>
       <label>ภาพหน้าจอ (ลิงก์ HTTPS บรรทัดละ 1 รูป)<textarea name="screenshots" rows="3">${esc((g?.screenshots || []).join('\n'))}</textarea></label>
       <label>อัปโหลดภาพหน้าจอจากเครื่อง (เลือกได้หลายรูป)<input type="file" id="shotFiles" accept="image/*" multiple></label>
       <p class="muted small" id="shotUp"></p>
@@ -1400,6 +1402,31 @@ async function gameModal(g) {
       <div class="row-end"><button type="button" class="btn ghost" data-close>ยกเลิก</button><button class="btn primary" type="submit">บันทึกเกม</button></div>
     </form>`, (d) => {
       $('#coverFile', d).addEventListener('change', async (e) => {
+    const rulesState = { url: '', list: [], i: 0 };
+    const showRules = () => {
+      const c = rulesState.list[rulesState.i];
+      $('textarea[name="how_to_play"]', d).value = c.text.slice(0, 4000);
+      $('#rulesMsg', d).textContent = `ใส่ข้อความแล้ว: ตัวเลือก ${rulesState.i + 1}/${rulesState.list.length} (${c.source})${rulesState.list.length > 1 ? ' · กดปุ่มอีกครั้งเพื่อดูตัวเลือกอื่น' : ''} · ตรวจแล้วกด “บันทึกเกม”`;
+    };
+    $('#rulesBtn', d).addEventListener('click', (e) => {
+      const url = $('input[name="play_url"]', d).value.trim();
+      if (rulesState.url === url && rulesState.list.length > 1) {
+        rulesState.i = (rulesState.i + 1) % rulesState.list.length;
+        showRules();
+        return;
+      }
+      withBusy(e.currentTarget, async () => {
+        if (!/^https:\/\/\S+$/.test(url)) throw new Error('กรุณาใส่ลิงก์เล่นเกม (https://) ก่อน');
+        $('#rulesMsg', d).textContent = 'กำลังดึงวิธีเล่นจากหน้าเกม...';
+        const r = await api('/api/fetch-rules', { url }, true);
+        if (!r.candidates?.length) {
+          $('#rulesMsg', d).textContent = 'ไม่พบข้อความกติกาในหน้าเกมนี้ (ข้อความเดิมในช่องไม่ถูกเปลี่ยน)';
+          return;
+        }
+        Object.assign(rulesState, { url, list: r.candidates, i: 0 });
+        showRules();
+      }, $('#rulesMsg', d));
+    });
       const slug = $('input[name="slug"]', d).value.trim().toLowerCase();
       await uploadCover(e.target.files[0], $('input[name="thumbnail_url"]', d), $('#coverUp', d), slug);
       e.target.value = '';
