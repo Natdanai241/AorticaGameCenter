@@ -134,3 +134,50 @@ export function extractRules(pageHtml, scriptTexts = []) {
     .slice(0, 4)
     .map((c) => ({ source: c.source, text: c.text.slice(0, MAX_TEXT) }));
 }
+
+
+// ตัวสำรอง: เมื่อไม่พบกล่องกติกาที่ชัดเจน ให้ดึงข้อความรอบคำว่า "กติกา / วิธีเล่น"
+export function keywordFallback(pageHtml, scriptTexts = []) {
+  const out = [];
+  const kw = /(กติกา|วิธีเล่น|วิธีการเล่น)/;
+  const kwG = /(กติกา|วิธีเล่น|วิธีการเล่น)/g;
+  const THAI = /[ก-๙]/;
+  const staticHtml = pageHtml.replace(/<script\b[\s\S]*?<\/script>/gi, ' ');
+  const inline = [...pageHtml.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map((x) => x[1]);
+  const scripts = [...inline, ...scriptTexts];
+
+  // 1) ข้อความรอบคำในหน้า HTML
+  const text = htmlToText(staticHtml);
+  const i = text.search(kw);
+  if (i >= 0) {
+    const win = text.slice(i, i + 1500).trim();
+    if (win.length >= 60) out.push({ source: 'ข้อความรอบคำว่า “กติกา” ในหน้าเกม (ต้องตรวจและแก้เอง)', text: win.slice(0, MAX_TEXT) });
+  }
+
+  // 2) ข้อความไทยที่อยู่ใกล้คำนั้นในสคริปต์ (เช่น กติกาที่สร้างด้วยโค้ด)
+  for (const js of scripts) {
+    const j = js.search(kw);
+    if (j < 0) continue;
+    const win = js.slice(Math.max(0, j - 200), j + 4500);
+    const lit = /`((?:\\[\s\S]|[^`\\])*)`|"((?:\\.|[^"\\\n])*)"|'((?:\\.|[^'\\\n])*)'/g;
+    const lines = [];
+    let m;
+    while ((m = lit.exec(win))) {
+      const t = htmlToText(unesc(m[1] ?? m[2] ?? m[3] ?? ''));
+      if (t.length >= 10 && THAI.test(t) && !lines.includes(t)) lines.push(t);
+    }
+    if (lines.length >= 3) {
+      out.push({ source: 'ข้อความไทยใกล้คำว่า “กติกา” ในสคริปต์ (ต้องตรวจและแก้เอง)', text: lines.slice(0, 30).map((t) => `• ${t}`).join('\n').slice(0, MAX_TEXT) });
+      break;
+    }
+  }
+  // ข้อมูลช่วยวิเคราะห์ ใช้แสดงเมื่อไม่พบอะไรเลย
+  const count = (str) => (str.match(kwG) || []).length;
+  out.info = {
+    chars: pageHtml.length,
+    scripts: scripts.length,
+    kwHtml: count(text),
+    kwJs: scripts.reduce((n, js) => n + count(js), 0),
+  };
+  return out;
+}
