@@ -1408,24 +1408,48 @@ async function gameModal(g) {
       $('textarea[name="how_to_play"]', d).value = c.text.slice(0, 4000);
       $('#rulesMsg', d).textContent = `ใส่ข้อความแล้ว: ตัวเลือก ${rulesState.i + 1}/${rulesState.list.length} (${c.source})${rulesState.list.length > 1 ? ' · กดปุ่มอีกครั้งเพื่อดูตัวเลือกอื่น' : ''} · ตรวจแล้วกด “บันทึกเกม”`;
     };
-    $('#rulesBtn', d).addEventListener('click', (e) => {
+    const rulesSay = (t, bad = false) => {
+      const el = $('#rulesMsg', d);
+      el.textContent = t;
+      el.className = bad ? 'form-msg err' : 'form-msg ok';
+    };
+    $('#rulesBtn', d).addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
       const url = $('input[name="play_url"]', d).value.trim();
       if (rulesState.url === url && rulesState.list.length > 1) {
         rulesState.i = (rulesState.i + 1) % rulesState.list.length;
         showRules();
         return;
       }
-      withBusy(e.currentTarget, async () => {
-        if (!/^https:\/\/\S+$/.test(url)) throw new Error('กรุณาใส่ลิงก์เล่นเกม (https://) ก่อน');
-        $('#rulesMsg', d).textContent = 'กำลังดึงวิธีเล่นจากหน้าเกม...';
-        const r = await api('/api/fetch-rules', { url }, true);
-        if (!r.candidates?.length) {
-          $('#rulesMsg', d).textContent = 'ไม่พบข้อความกติกาในหน้าเกมนี้ (ข้อความเดิมในช่องไม่ถูกเปลี่ยน)';
+      if (!/^https:\/\/\S+$/.test(url)) { rulesSay('กรุณาใส่ลิงก์เล่นเกม (ขึ้นต้นด้วย https://) ในช่องลิงก์เล่นเกมก่อน', true); return; }
+      btn.disabled = true;
+      rulesSay('กำลังดึงวิธีเล่นจากหน้าเกม... (อาจใช้เวลาถึง 20 วินาที)');
+      try {
+        const resp = await fetch('/api/fetch-rules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${state.session?.access_token || ''}` },
+          body: JSON.stringify({ url }),
+        });
+        const raw = await resp.text();
+        let r = null;
+        try { r = JSON.parse(raw); } catch { /* ไม่ใช่ JSON */ }
+        if (!resp.ok) {
+          const why = (r?.error || raw).replace(/\s+/g, ' ').slice(0, 160);
+          rulesSay(`เซิร์ฟเวอร์ตอบ ${resp.status}: ${why}`, true);
+          return;
+        }
+        if (!r?.candidates?.length) {
+          const i = r?.info || {};
+          rulesSay(`ไม่พบข้อความกติกา (ดึงหน้าเกมได้ ${i.chars ?? '?'} ตัวอักษร สคริปต์ ${i.scripts ?? '?'} ชุด พบคำว่า “กติกา/วิธีเล่น” ในหน้า ${i.kwHtml ?? '?'} ครั้ง ในสคริปต์ ${i.kwJs ?? '?'} ครั้ง) ข้อความเดิมในช่องไม่ถูกเปลี่ยน`, true);
           return;
         }
         Object.assign(rulesState, { url, list: r.candidates, i: 0 });
         showRules();
-      }, $('#rulesMsg', d));
+      } catch (err) {
+        rulesSay(`เกิดข้อผิดพลาด: ${err.message}`, true);
+      } finally {
+        btn.disabled = false;
+      }
     });
       const slug = $('input[name="slug"]', d).value.trim().toLowerCase();
       await uploadCover(e.target.files[0], $('input[name="thumbnail_url"]', d), $('#coverUp', d), slug);
