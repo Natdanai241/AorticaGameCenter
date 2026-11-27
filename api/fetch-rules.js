@@ -1,7 +1,7 @@
 import dns from 'node:dns/promises';
 import net from 'node:net';
 import { adminClient, anonClient, send, clientIp, rateLimit } from './_lib.js';
-import { extractRules } from './_rules.js';
+import { extractRules, keywordFallback } from './_rules.js';
 
 const MAX_BYTES = 2.5 * 1024 * 1024;
 
@@ -14,7 +14,7 @@ async function requireGM(req, admin) {
   return p && p.role === 'gm' && p.status === 'active' ? data.user.id : null;
 }
 
-export function isPrivateIp(ip) {
+function isPrivateIp(ip) {
   if (net.isIPv4(ip)) {
     const [a, b] = ip.split('.').map(Number);
     return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31)
@@ -99,6 +99,9 @@ export default async function handler(req, res) {
     return send(res, 200, { candidates: extractRules(page.text, scripts) });
   } catch (e) {
     console.error('fetch-rules', e);
-    return send(res, 502, { error: `ดึงวิธีเล่นไม่สำเร็จ: ${String(e.message || e).slice(0, 160)}` });
+    const found = extractRules(page.text, scripts);
+    const fb = keywordFallback(page.text, scripts);
+    const candidates = [...found, ...fb].slice(0, 5);
+    return send(res, 200, { candidates, info: { ...fb.info, structured: found.length } });
   }
 }
